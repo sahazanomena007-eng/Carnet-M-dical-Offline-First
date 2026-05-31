@@ -246,15 +246,15 @@ class StatCard(QFrame):
 
 
 EMPTY_MESSAGES = {
-    "carnet": ("\U0001F4D6", "Aucune consultation", "Vos consultations apparaitront ici"),
-    "medecins": ("\U0001FA7A", "Aucun medecin lie", "Utilisez le code d'association"),
-    "rdv": ("\U0001F4C5", "Aucun rendez-vous", "Prenez rendez-vous avec votre medecin"),
-    "prescriptions": ("\U0001F48A", "Aucune prescription", "Vos prescriptions apparaitront ici"),
-    "allergies": ("\u26A0\uFE0F", "Aucune allergie", "Ajoutez vos allergies"),
-    "examens": ("\U0001F52C", "Aucun examen", "Vos resultats d'examens apparaitront ici"),
-    "patients": ("\U0001F465", "Aucun patient lie", "Utilisez l'ID ou le N dossier"),
-    "consultations": ("\U0001F4CB", "Aucune consultation", "Les consultations apparaitront ici"),
-    "default": ("\U0001F4AD", "Aucune donnee", ""),
+    "carnet": ("▬", "Aucune consultation", "Vos consultations apparaitront ici"),
+    "medecins": ("●", "Aucun medecin lie", "Utilisez le code d'association"),
+    "rdv": ("◆", "Aucun rendez-vous", "Prenez rendez-vous avec votre medecin"),
+    "prescriptions": ("◄", "Aucune prescription", "Vos prescriptions apparaitront ici"),
+    "allergies": ("★", "Aucune allergie", "Ajoutez vos allergies"),
+    "examens": ("■", "Aucun examen", "Vos resultats d'examens apparaitront ici"),
+    "patients": ("▲", "Aucun patient lie", "Utilisez l'ID ou le N dossier"),
+    "consultations": ("○", "Aucune consultation", "Les consultations apparaitront ici"),
+    "default": ("i", "Aucune donnee", ""),
 }
 
 

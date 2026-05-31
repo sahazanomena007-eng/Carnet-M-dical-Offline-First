@@ -192,15 +192,15 @@ class AdminView(QMainWindow):
         sl.setSpacing(16)
         stats_data = MedecinModel.get_stats()
         labels = [
-            ("\U0001F465 Utilisateurs", stats_data.get('utilisateurs', 0), C_PRIMARY),
+            ("Patients Utilisateurs", stats_data.get('utilisateurs', 0), C_PRIMARY),
             ("\U0001F468 Patients", stats_data.get('patients', 0), C_SUCCESS),
-            ("\U0001FA7A Medecins", stats_data.get('medecins', 0), "#8B5CF6"),
+            ("[M] Medecins", stats_data.get('medecins', 0), "#8B5CF6"),
             ("\u23F3 En attente", stats_data.get('en_attente', 0), C_WARNING),
-            ("\U0001F4CB Consultations", stats_data.get('consultations', 0), C_DANGER),
-            ("\U0001F48A Prescriptions", stats_data.get('prescriptions', 0), "#EC4899"),
-            ("\U0001F4C5 Rendez-vous", stats_data.get('rendez_vous', 0), "#14B8A6"),
+            ("Records Consultations", stats_data.get('consultations', 0), C_DANGER),
+            ("Rx Prescriptions", stats_data.get('prescriptions', 0), "#EC4899"),
+            ("Schedule Rendez-vous", stats_data.get('rendez_vous', 0), "#14B8A6"),
             ("\u26A0 Allergies", stats_data.get('allergies', 0), "#F97316"),
-            ("\U0001F52C Examens", stats_data.get('examens', 0), "#6366F1"),
+            ("Labs Examens", stats_data.get('examens', 0), "#6366F1"),
             ("\U0001F4DD Actions", stats_data.get('audit_log', 0), "#84CC16"),
         ]
         for i, (label, count, color) in enumerate(labels):

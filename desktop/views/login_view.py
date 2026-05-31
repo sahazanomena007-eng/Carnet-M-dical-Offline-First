@@ -42,8 +42,8 @@ class LoginView(QMainWindow):
         cl.setAlignment(Qt.AlignCenter)
         add_shadow(card, blur=40, offset=4, color=QColor(15, 108, 189, 50))
 
-        icon_lbl = QLabel("\U0001F3E5")
-        icon_lbl.setStyleSheet("font-size: 56px;")
+        icon_lbl = QLabel("[CARNET]")  # Professional placeholder instead of emoji
+        icon_lbl.setStyleSheet(f"font-size: 44px; font-weight: 800; color: {C_PRIMARY}; letter-spacing: 1px;")
         icon_lbl.setAlignment(Qt.AlignCenter)
         cl.addWidget(icon_lbl)
 
@@ -88,7 +88,7 @@ class LoginView(QMainWindow):
         panel, lo = self._card("Connexion")
         self.login_email = QLineEdit()
         self.login_email.setPlaceholderText("Entrez votre email")
-        lo.addWidget(QLabel("\U0001F4E7  Email"))
+        lo.addWidget(QLabel("Adresse email"))
         lo.addWidget(self.login_email)
 
         pwd_row = QWidget()
@@ -98,13 +98,13 @@ class LoginView(QMainWindow):
         self.login_password.setPlaceholderText("Mot de passe")
         self.login_password.setEchoMode(QLineEdit.Password)
         prl.addWidget(self.login_password, 1)
-        self.toggle_pwd_btn = QPushButton("\U0001F441")
+        self.toggle_pwd_btn = QPushButton("👁")
         self.toggle_pwd_btn.setFixedWidth(40)
         self.toggle_pwd_btn.setStyleSheet(f"background: {C_BORDER}; color: {C_TEXT_SEC}; border: none; border-radius: 6px; padding: 8px;")
         self.toggle_pwd_btn.setToolTip("Afficher/Masquer le mot de passe")
         self.toggle_pwd_btn.clicked.connect(self._toggle_password)
         prl.addWidget(self.toggle_pwd_btn)
-        lo.addWidget(QLabel("\U0001F512  Mot de passe"))
+        lo.addWidget(QLabel("Mot de passe"))
         lo.addWidget(pwd_row)
 
         self.login_loading = QProgressBar()
@@ -121,7 +121,7 @@ class LoginView(QMainWindow):
         sep.setStyleSheet(f"color: {C_BORDER}; margin: 4px 0;")
         lo.addWidget(sep)
 
-        btn_create = make_btn("Creer un compte", "success", "\U0001F464")
+        btn_create = make_btn("Creer un compte", "success")
         btn_create.clicked.connect(self._show_create_dialog)
         lo.addWidget(btn_create)
         return panel

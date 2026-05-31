@@ -46,7 +46,7 @@ class MedecinView(QMainWindow):
         pl = QVBoxLayout(profile)
         pl.setContentsMargins(16, 20, 16, 20)
         pl.setSpacing(4)
-        avatar = QLabel("\U0001FA7A")
+        avatar = QLabel("[M]")
         avatar.setStyleSheet("font-size: 40px;")
         pl.addWidget(avatar)
         self.sb_name = QLabel(f"Dr. {medecin['prenom']} {medecin['nom']}")
@@ -57,12 +57,12 @@ class MedecinView(QMainWindow):
         pl.addWidget(self.sb_spc)
 
         nav_items = [
-            ("tableau_bord", "\U0001F4CA  Tableau de bord"),
-            ("patients", "\U0001F465  Mes Patients"),
-            ("consultations", "\U0001F4CB  Consultations"),
-            ("rendezvous", "\U0001F4C5  Rendez-vous"),
-            ("prescriptions", "\U0001F48A  Prescriptions"),
-            ("recherche", "\U0001F50D  Recherche"),
+            ("tableau_bord", "Tableau de bord"),
+            ("patients", "Mes Patients"),
+            ("consultations", "Consultations"),
+            ("rendezvous", "Rendez-vous"),
+            ("prescriptions", "Prescriptions"),
+            ("recherche", "Recherche"),
         ]
         self.sidebar = Sidebar(nav_items, profile)
         self.sidebar.logout_btn.clicked.connect(self._on_logout)
@@ -157,7 +157,7 @@ class MedecinView(QMainWindow):
         today_rdvs = [r for r in rdvs if r.get('date_rdv') == date.today().isoformat()]
         badge = ""
         if today_rdvs:
-            badge = f"\U0001F514 {len(today_rdvs)} RDV aujourd'hui"
+            badge = f"[!] {len(today_rdvs)} RDV aujourd'hui"
         self.dash_badge.setText(badge)
         self.dash_badge.setVisible(bool(badge))
         old = self.dash_stats.layout()
@@ -168,10 +168,10 @@ class MedecinView(QMainWindow):
         sl = QHBoxLayout(stats_w)
         sl.setSpacing(16)
         for lbl, val, col, ic in [
-            ("Patients", len(patients), C_PRIMARY, "\U0001F465"),
-            ("Consultations", len(consults), C_SUCCESS, "\U0001F4CB"),
-            ("Rendez-vous", len(rdvs), C_WARNING, "\U0001F4C5"),
-            ("Prescriptions", len(prescs), "#8B5CF6", "\U0001F48A"),
+            ("Patients", len(patients), C_PRIMARY, "P"),
+            ("Consultations", len(consults), C_SUCCESS, "C"),
+            ("Rendez-vous", len(rdvs), C_WARNING, "R"),
+            ("Prescriptions", len(prescs), "#8B5CF6", "Rx"),
         ]:
             sl.addWidget(StatCard(lbl, val, col, ic))
         old.addWidget(stats_w)
@@ -179,9 +179,9 @@ class MedecinView(QMainWindow):
             w = self.dash_quick_layout.takeAt(0).widget()
             if w: w.deleteLater()
         for txt, cb in [
-            ("\U0001F465  Voir mes patients", lambda: self._show_page("patients")),
-            ("\U0001F4CB  Nouvelle consultation", lambda: self._show_page("consultations")),
-            ("\U0001F4C5  Gerer rendez-vous", lambda: self._show_page("rendezvous")),
+            ("Voir mes patients", lambda: self._show_page("patients")),
+            ("Nouvelle consultation", lambda: self._show_page("consultations")),
+            ("Gerer rendez-vous", lambda: self._show_page("rendezvous")),
         ]:
             btn = QPushButton(txt)
             btn.setCursor(Qt.PointingHandCursor)
@@ -213,7 +213,7 @@ class MedecinView(QMainWindow):
         title_row = QWidget()
         trl = QHBoxLayout(title_row)
         trl.setContentsMargins(0, 0, 0, 8)
-        t = page_title("\U0001F465  Mes Patients")
+        t = page_title("Mes Patients")
         trl.addWidget(t); trl.addStretch()
         layout.addWidget(title_row)
 
@@ -222,7 +222,7 @@ class MedecinView(QMainWindow):
         al.setContentsMargins(0, 0, 0, 12)
         self.assoc_patient_input = QLineEdit()
         self.assoc_patient_input.setPlaceholderText("ID ou N dossier du patient")
-        btn_assoc = make_btn("Demander association", "primary", "\U0001F517")
+        btn_assoc = make_btn("Demander association", "primary")
         btn_assoc.clicked.connect(self._request_association)
         al.addWidget(self.assoc_patient_input, 1); al.addWidget(btn_assoc)
         self.assoc_code_label = QLabel("")
@@ -272,7 +272,7 @@ class MedecinView(QMainWindow):
         title_row = QWidget()
         trl = QHBoxLayout(title_row)
         trl.setContentsMargins(0, 0, 0, 8)
-        t = page_title("\U0001F4CB  Consultations")
+        t = page_title("Consultations")
         trl.addWidget(t); trl.addStretch()
         btn_new = make_btn("Nouvelle consultation", "success", "\u2795")
         btn_new.clicked.connect(self._new_consultation)
@@ -340,11 +340,11 @@ class MedecinView(QMainWindow):
         title_row = QWidget()
         trl = QHBoxLayout(title_row)
         trl.setContentsMargins(0, 0, 0, 8)
-        t = page_title("\U0001F4C5  Rendez-vous")
+        t = page_title("Rendez-vous")
         trl.addWidget(t); trl.addStretch()
         btn_new = make_btn("Nouveau RDV", "primary", "\u2795")
         btn_new.clicked.connect(self._new_rdv)
-        btn_opt = make_btn("Optimiser (Glouton)", "success", "\U0001F4CA")
+        btn_opt = make_btn("Optimiser (Glouton)", "success")
         btn_opt.clicked.connect(self._optimize_rdv)
         trl.addWidget(btn_new); trl.addWidget(btn_opt)
         self.optimize_result = QLabel("")
@@ -438,11 +438,11 @@ class MedecinView(QMainWindow):
         title_row = QWidget()
         trl = QHBoxLayout(title_row)
         trl.setContentsMargins(0, 0, 0, 8)
-        t = page_title("\U0001F48A  Prescriptions")
+        t = page_title("Prescriptions")
         trl.addWidget(t); trl.addStretch()
         btn_new = make_btn("Nouvelle prescription", "success", "\u2795")
         btn_new.clicked.connect(self._new_prescription)
-        btn_opt = make_btn("Optimiser (DP)", "primary", "\U0001F4CA")
+        btn_opt = make_btn("Optimiser (DP)", "primary", "Dashboard")
         btn_opt.clicked.connect(self._optimize_presc)
         trl.addWidget(btn_new); trl.addWidget(btn_opt)
         layout.addWidget(title_row)
@@ -532,7 +532,7 @@ class MedecinView(QMainWindow):
         result_area = QTextEdit(); result_area.setReadOnly(True); result_area.setMaximumHeight(140)
         result_area.setStyleSheet(f"background: {C_PRIMARY_LIGHT}; border: 2px solid {C_PRIMARY}; border-radius: 12px; padding: 8px;")
         layout.addWidget(result_area)
-        btn_calc = make_btn("Optimiser (DP Sac a dos)", "primary", "\U0001F4CA")
+        btn_calc = make_btn("Optimiser (DP Sac a dos)", "primary", "Dashboard")
         btn_calc.clicked.connect(lambda: self._run_dp(med_entries, budget_spin, result_area))
         layout.addWidget(btn_calc)
         btn_close = QPushButton("Fermer"); btn_close.setObjectName("btnOutline")
@@ -569,7 +569,7 @@ class MedecinView(QMainWindow):
         page = QWidget()
         layout = QVBoxLayout(page)
         layout.setContentsMargins(28, 28, 28, 28)
-        layout.addWidget(page_title("\U0001F50D  Recherche Medicale"))
+        layout.addWidget(page_title("Search  Recherche Medicale"))
         subtitle = QLabel("Trouvez rapidement une consultation dans l'historique de vos patients.")
         subtitle.setStyleSheet(f"color: {C_TEXT_SEC}; font-size: 13px; margin-bottom: 18px;")
         layout.addWidget(subtitle)
@@ -579,7 +579,7 @@ class MedecinView(QMainWindow):
         self.kmp_search_input = QLineEdit()
         self.kmp_search_input.setPlaceholderText("Motif, diagnostic, symptomes...")
         self.kmp_search_input.returnPressed.connect(self._kmp_search)
-        btn_search = make_btn("Rechercher", "primary", "\U0001F50D")
+        btn_search = make_btn("Rechercher", "primary", "Search")
         btn_search.clicked.connect(self._kmp_search)
         sl.addWidget(self.kmp_search_input, 1); sl.addWidget(btn_search)
         layout.addWidget(search_bar)

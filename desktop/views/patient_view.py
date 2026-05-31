@@ -41,8 +41,9 @@ class PatientView(QMainWindow):
         pl = QVBoxLayout(profile)
         pl.setContentsMargins(16, 20, 16, 20)
         pl.setSpacing(4)
-        avatar = QLabel("\U0001F468\u200D\U0001F393")
-        avatar.setStyleSheet("font-size: 40px;")
+        avatar = QLabel("[P]")  # Professional patient indicator
+        avatar.setStyleSheet(f"font-size: 36px; font-weight: 800; color: white; text-align: center; width: 60px; height: 60px; line-height: 60px; background: {C_PRIMARY}; border-radius: 12px;")
+        avatar.setAlignment(Qt.AlignCenter)
         pl.addWidget(avatar)
         self.sb_name = QLabel(f"{patient['prenom']} {patient['nom']}")
         self.sb_name.setStyleSheet("font-size: 16px; font-weight: 700; color: white;")
@@ -52,13 +53,13 @@ class PatientView(QMainWindow):
         pl.addWidget(self.sb_dos)
 
         nav_items = [
-            ("tableau_bord", "\U0001F4CA  Tableau de bord"),
-            ("carnet", "\U0001F4D6  Mon Carnet"),
-            ("medecins", "\U0001FA7A  Mes Medecins"),
-            ("rendezvous", "\U0001F4C5  Rendez-vous"),
-            ("prescriptions", "\U0001F48A  Prescriptions"),
-            ("allergies", "\u26A0\uFE0F  Allergies"),
-            ("examens", "\U0001F52C  Examens"),
+            ("tableau_bord", "Tableau de bord"),
+            ("carnet", "Mon Carnet"),
+            ("medecins", "Mes Medecins"),
+            ("rendezvous", "Rendez-vous"),
+            ("prescriptions", "Prescriptions"),
+            ("allergies", "Allergies"),
+            ("examens", "Examens"),
         ]
         self.sidebar = Sidebar(nav_items, profile)
         self.sidebar.logout_btn.clicked.connect(self._on_logout)
@@ -160,9 +161,9 @@ class PatientView(QMainWindow):
 
         badge = ""
         if today_rdvs:
-            badge = f"\U0001F514 {len(today_rdvs)} RDV aujourd'hui"
+            badge = f"[!] {len(today_rdvs)} RDV aujourd'hui"
         elif rdvs:
-            badge = f"\U0001F4C5 Prochain: {rdvs[0].get('date_rdv','')}"
+            badge = f"Prochain: {rdvs[0].get('date_rdv','')}"
         self.dash_badge.setText(badge)
         self.dash_badge.setVisible(bool(badge))
 
@@ -174,11 +175,11 @@ class PatientView(QMainWindow):
         sl = QHBoxLayout(stats_w)
         sl.setSpacing(16)
         for lbl, val, col, ic in [
-            ("Consultations", len(consults), C_PRIMARY, "\U0001F4CB"),
-            ("Prescriptions", len(prescs), C_SUCCESS, "\U0001F48A"),
-            ("Rendez-vous", len(rdvs), C_WARNING, "\U0001F4C5"),
-            ("Allergies", len(allergies), C_DANGER, "\u26A0\uFE0F"),
-            ("Medecins", len(links), "#8B5CF6", "\U0001FA7A"),
+            ("Consultations", len(consults), C_PRIMARY, "C"),
+            ("Prescriptions", len(prescs), C_SUCCESS, "P"),
+            ("Rendez-vous", len(rdvs), C_WARNING, "R"),
+            ("Allergies", len(allergies), C_DANGER, "A"),
+            ("Medecins", len(links), "#8B5CF6", "M"),
         ]:
             sl.addWidget(StatCard(lbl, val, col, ic))
         old.addWidget(stats_w)
@@ -203,9 +204,9 @@ class PatientView(QMainWindow):
             w = self.dash_quick_layout.takeAt(0).widget()
             if w: w.deleteLater()
         for txt, cb in [
-            ("\U0001F4D6  Consulter mon carnet", lambda: self._show_page("carnet")),
-            ("\U0001F4C5  Mes rendez-vous", lambda: self._show_page("rendezvous")),
-            ("\U0001FA7A  Gerer mes medecins", lambda: self._show_page("medecins")),
+            ("Records  Consulter mon carnet", lambda: self._show_page("carnet")),
+            ("Schedule  Mes rendez-vous", lambda: self._show_page("rendezvous")),
+            ("[M]  Gerer mes medecins", lambda: self._show_page("medecins")),
         ]:
             btn = QPushButton(txt)
             btn.setCursor(Qt.PointingHandCursor)
@@ -223,7 +224,7 @@ class PatientView(QMainWindow):
         page = QWidget()
         layout = QVBoxLayout(page)
         layout.setContentsMargins(28, 28, 28, 28)
-        layout.addWidget(page_title("\U0001F4D6  Mon Carnet Medical"))
+        layout.addWidget(page_title("Records  Mon Carnet Medical"))
 
         search_bar = QWidget()
         sl = QHBoxLayout(search_bar)
@@ -231,7 +232,7 @@ class PatientView(QMainWindow):
         self.kmp_input = QLineEdit()
         self.kmp_input.setPlaceholderText("Rechercher dans l'historique medical...")
         self.kmp_input.returnPressed.connect(self._kmp_search)
-        btn_search = make_btn("Rechercher", "primary", "\U0001F50D")
+        btn_search = make_btn("Rechercher", "primary", "Search")
         btn_search.clicked.connect(self._kmp_search)
         sl.addWidget(self.kmp_input, 1); sl.addWidget(btn_search)
         layout.addWidget(search_bar)
@@ -273,7 +274,7 @@ class PatientView(QMainWindow):
         page = QWidget()
         layout = QVBoxLayout(page)
         layout.setContentsMargins(28, 28, 28, 28)
-        layout.addWidget(page_title("\U0001FA7A  Mes Medecins"))
+        layout.addWidget(page_title("[M]  Mes Medecins"))
 
         assoc = QWidget()
         al = QHBoxLayout(assoc)
@@ -335,7 +336,7 @@ class PatientView(QMainWindow):
         page = QWidget()
         layout = QVBoxLayout(page)
         layout.setContentsMargins(28, 28, 28, 28)
-        layout.addWidget(page_title("\U0001F4C5  Mes Rendez-vous"))
+        layout.addWidget(page_title("Schedule  Mes Rendez-vous"))
         self.rdv_table = TableWithEmpty(["Date", "Heure", "Motif", "Type", "Statut"], "rdv")
         layout.addWidget(self.rdv_table, 1)
         return page
@@ -353,7 +354,7 @@ class PatientView(QMainWindow):
         page = QWidget()
         layout = QVBoxLayout(page)
         layout.setContentsMargins(28, 28, 28, 28)
-        layout.addWidget(page_title("\U0001F48A  Mes Prescriptions"))
+        layout.addWidget(page_title("Rx  Mes Prescriptions"))
         self.presc_table = TableWithEmpty(["Titre", "Contenu", "Medecin", "Date debut", "Date fin", "Statut"], "prescriptions")
         layout.addWidget(self.presc_table, 1)
         return page
@@ -376,7 +377,7 @@ class PatientView(QMainWindow):
         title_row = QWidget()
         trl = QHBoxLayout(title_row)
         trl.setContentsMargins(0, 0, 0, 8)
-        t = QLabel("\u26A0\uFE0F  Allergies")
+        t = QLabel("Alerts  Allergies")
         t.setStyleSheet(f"font-size: 24px; font-weight: 800; color: {C_TEXT};")
         trl.addWidget(t); trl.addStretch()
         btn_add = make_btn("Ajouter une allergie", "warning", "\u2795")
@@ -442,7 +443,7 @@ class PatientView(QMainWindow):
         title_row = QWidget()
         trl = QHBoxLayout(title_row)
         trl.setContentsMargins(0, 0, 0, 8)
-        t = QLabel("\U0001F52C  Examens")
+        t = QLabel("Labs  Examens")
         t.setStyleSheet(f"font-size: 24px; font-weight: 800; color: {C_TEXT};")
         trl.addWidget(t); trl.addStretch()
         btn_add = make_btn("Ajouter un examen", "primary", "\u2795")
