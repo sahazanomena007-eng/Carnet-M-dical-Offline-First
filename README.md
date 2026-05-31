@@ -10,6 +10,9 @@ Systeme de gestion de carnet medical numerique, offline-first, securise et multi
 
 ```
 .
+├── docs/                   # Documentation
+│   ├── contraintes_2035.md       # Contraintes declarees et justifiees
+│   └── dossier_algorithmique.md  # Dossier algo (plan impose 7 sections)
 ├── web/                    # Application Web (Node.js + React)
 │   ├── api/               # Backend tRPC + Hono
 │   ├── db/                # Schema Drizzle ORM + MySQL
@@ -19,7 +22,11 @@ Systeme de gestion de carnet medical numerique, offline-first, securise et multi
 │   ├── main.py            # Point d'entree
 │   ├── db.py              # Base SQLite + sync
 │   ├── algorithms.py      # Algorithmes (KMP, Greedy, DP, AVL, Hash, Heap)
+│   ├── benchmark.py       # Benchmark baseline vs optimise
+│   ├── tests/             # Tests unitaires (8 tests)
+│   │   └── test_algorithms.py
 │   └── requirements.txt   # Dependances Python
+├── data/                  # Jeu de donnees
 └── README.md              # Ce fichier
 ```
 
@@ -107,6 +114,22 @@ python main.py
 - **Arbre AVL**: Stockage equilibre de l'historique des consultations
 - **Heap (Tas)**: Gestion prioritaire des rendez-vous urgents
 - **Liste chainee**: Stockage offline leger des donnees en attente de sync
+
+## Tests Unitaires
+
+```bash
+cd desktop
+python -m unittest tests/test_algorithms.py -v
+```
+
+## Benchmark Baseline vs Optimise
+
+```bash
+cd desktop
+python algorithms.py
+```
+
+Genere un tableau comparatif temps/memoire/qualite pour chaque algorithme.
 
 ---
 

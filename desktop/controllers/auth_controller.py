@@ -3,6 +3,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 import db
 
 from PyQt5.QtWidgets import QMessageBox, QDialog, QVBoxLayout, QLabel, QPushButton
+from PyQt5.QtCore import Qt
 
 
 class AuthController:
@@ -19,10 +20,10 @@ class AuthController:
         layout.setSpacing(16)
 
         title = QLabel("Choisissez le type de compte"); title.setStyleSheet("font-size: 17px; font-weight: 700; color: #1F2937;")
-        title.setAlignment(__import__('PyQt5.QtCore').Qt.AlignCenter)
+        title.setAlignment(Qt.AlignCenter)
         layout.addWidget(title)
         desc = QLabel("Je suis un..."); desc.setStyleSheet("font-size: 13px; color: #6B7280;")
-        desc.setAlignment(__import__('PyQt5.QtCore').Qt.AlignCenter)
+        desc.setAlignment(Qt.AlignCenter)
         layout.addWidget(desc)
 
         from views.components import C_SUCCESS, C_PRIMARY

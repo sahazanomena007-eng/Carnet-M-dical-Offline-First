@@ -26,6 +26,20 @@ Le Carnet Médical Numérique est une plateforme de santé digitale destinée à
 
 ---
 
+## 1.4 Contraintes 2035 déclarées et justifiées
+
+Conformément au cahier des charges du projet transversal, je déclare **3 contraintes minimales** parmi la liste proposée, qui ont guidé l'architecture et les choix algorithmiques :
+
+| # | Contrainte | Justification technique | Impact architectural |
+|---|-----------|----------------------|---------------------|
+| 1 | **Connectivité intermittente** | SQLite local + sync_queue + IndexedDB web. Toutes les opérations critiques fonctionnent hors-ligne. | Architecture offline-first (desktop + web) |
+| 2 | **Faible débit** | Algorithmes optimisés (KMP O(n+m), DP O(n×W), Greedy O(n log n)). Traitement local minimisant les échanges réseau. | Sync diff seulement ; calculs côté client |
+| 3 | **Sécurité/Confidentialité** | PBKDF2-SHA256, bcrypt, JWT, RBAC, audit log, validation mutuelle patient-médecin. | Chiffrement, contrôle d'accès, traçabilité |
+
+*Détail complet dans `docs/contraintes_2035.md`*
+
+---
+
 ## 2. Architecture Technique
 
 ### 2.1 Stack Technologique

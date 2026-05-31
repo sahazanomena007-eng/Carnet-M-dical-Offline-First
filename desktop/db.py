@@ -408,11 +408,33 @@ def revoke_link(link_id: int, revoked_by: str = 'patient') -> bool:
 
 
 def get_patient(user_id: int = None, patient_id: int = None):
+    # Return patient records joined with corresponding user info (nom, prenom, telephone)
     if patient_id is not None:
-        return _execute('SELECT * FROM patients WHERE id = ?', (patient_id,), fetchall=True)
+        return _execute(
+            '''SELECT p.*, u.nom, u.prenom, u.telephone
+               FROM patients p
+               JOIN users u ON p.user_id = u.id
+               WHERE p.id = ?''',
+            (patient_id,),
+            fetchall=True
+        )
     if user_id is not None:
-        return _execute('SELECT * FROM patients WHERE user_id = ?', (user_id,), fetchall=True)
-    return _execute('SELECT * FROM patients ORDER BY created_at DESC', (), fetchall=True)
+        return _execute(
+            '''SELECT p.*, u.nom, u.prenom, u.telephone
+               FROM patients p
+               JOIN users u ON p.user_id = u.id
+               WHERE p.user_id = ?''',
+            (user_id,),
+            fetchall=True
+        )
+    return _execute(
+        '''SELECT p.*, u.nom, u.prenom, u.telephone
+           FROM patients p
+           JOIN users u ON p.user_id = u.id
+           ORDER BY p.created_at DESC''',
+        (),
+        fetchall=True
+    )
 
 
 def get_medecin(user_id: int = None, medecin_id: int = None):
