@@ -17,6 +17,7 @@ from views.components import (
 )
 from models.patient_model import PatientModel
 from algorithms import search_medical_history, PatientHashTable, AVLTree
+import db
 
 
 class PatientView(QMainWindow):
@@ -157,13 +158,19 @@ class PatientView(QMainWindow):
         rdvs = PatientModel.get_rendezvous(patient_id)
         allergies = PatientModel.get_allergies(patient_id)
         links = PatientModel.get_links(patient_id)
+        vaccins = PatientModel.get_vaccins(patient_id)
+        notifs = PatientModel.get_notifications(self.user['id'])
         today_rdvs = [r for r in rdvs if r.get('date_rdv') == date.today().isoformat()]
+        age = PatientModel.calcul_age(p.get('date_naissance',''))
 
         badge = ""
         if today_rdvs:
             badge = f"[!] {len(today_rdvs)} RDV aujourd'hui"
         elif rdvs:
             badge = f"Prochain: {rdvs[0].get('date_rdv','')}"
+        notif_non_lues = sum(1 for n in notifs if not n.get('lu'))
+        if notif_non_lues:
+            badge += f" | [{notif_non_lues} notification(s)]" if badge else f"[{notif_non_lues} notification(s)]"
         self.dash_badge.setText(badge)
         self.dash_badge.setVisible(bool(badge))
 
@@ -179,7 +186,8 @@ class PatientView(QMainWindow):
             ("Prescriptions", len(prescs), C_SUCCESS, "P"),
             ("Rendez-vous", len(rdvs), C_WARNING, "R"),
             ("Allergies", len(allergies), C_DANGER, "A"),
-            ("Medecins", len(links), "#8B5CF6", "M"),
+            ("Medecins", len(links), "#8B5CF6,", "M"),
+            ("Vaccins", len(vaccins), "#10B981", "V"),
         ]:
             sl.addWidget(StatCard(lbl, val, col, ic))
         old.addWidget(stats_w)
@@ -189,12 +197,15 @@ class PatientView(QMainWindow):
             info_layout.removeRow(info_layout.rowCount() - 1)
         for label, val in [
             ("Dossier", p.get("numero_dossier","")),
+            ("Age", f"{age} ans" if age else "N/A"),
             ("Date naissance", p.get("date_naissance","")),
             ("Sexe", "Masculin" if p.get("sexe")=="M" else "Feminin"),
             ("Groupe", p.get("groupe_sanguin","N/A")),
             ("Taille", f'{p.get("taille_cm","")} cm' if p.get("taille_cm") else "N/A"),
             ("Poids", f'{p.get("poids_kg","")} kg' if p.get("poids_kg") else "N/A"),
             ("Telephone", p.get("telephone","N/A")),
+            ("Maladies", p.get("antecedents_personnels","Aucun")),
+            ("Vaccins", f"{len(vaccins)} enregistre(s)"),
         ]:
             l = QLabel(f"<b>{label}:</b>"); l.setStyleSheet(f"color: {C_TEXT_SEC};")
             v = QLabel(str(val)); v.setStyleSheet(f"color: {C_TEXT}; font-weight: 500;")

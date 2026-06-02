@@ -8,7 +8,8 @@ from algorithms import (
     compute_lps, kmp_search, search_medical_history,
     Appointment, greedy_schedule_optimization, find_conflicts,
     Medicament, optimize_prescriptions_dp, optimize_prescriptions_bruteforce,
-    PatientHashTable, AVLTree, AVLNode, AppointmentHeap
+    PatientHashTable, AVLTree, AVLNode, AppointmentHeap,
+    levenshtein_distance, fuzzy_search, BinarySearchTree, BSTNode,
 )
 
 
@@ -143,6 +144,48 @@ class TestAVL(unittest.TestCase):
             avl.insert(datetime(2025, 1, i), {"id": i})
         balance = avl._balance(avl.root)
         self.assertIn(balance, [-1, 0, 1])
+
+
+class TestLevenshtein(unittest.TestCase):
+    def test_distance_zero_identical(self):
+        self.assertEqual(levenshtein_distance("alice", "alice"), 0)
+
+    def test_distance_substitution(self):
+        self.assertEqual(levenshtein_distance("alice", "alixe"), 1)
+
+    def test_distance_completely_different(self):
+        self.assertEqual(levenshtein_distance("abc", "xyz"), 3)
+
+    def test_fuzzy_search_finds_approximate(self):
+        names = ["Alice", "Robert", "Jean", "Marie", "Rabe"]
+        indices = fuzzy_search("Alis", names, threshold=2)
+        self.assertIn(0, indices)
+
+
+class TestBST(unittest.TestCase):
+    def test_insert_and_inorder(self):
+        bst = BinarySearchTree()
+        bst.insert("2025-01-01", {"id": 1})
+        bst.insert("2025-01-03", {"id": 2})
+        bst.insert("2025-01-02", {"id": 3})
+        items = bst.inorder()
+        self.assertEqual([i["id"] for i in items], [1, 3, 2])
+
+    def test_range_search(self):
+        bst = BinarySearchTree()
+        bst.insert("2025-01-01", {"id": 1})
+        bst.insert("2025-01-05", {"id": 2})
+        bst.insert("2025-01-10", {"id": 3})
+        bst.insert("2025-01-15", {"id": 4})
+        items = bst.range_search("2025-01-05", "2025-01-12")
+        self.assertEqual([i["id"] for i in items], [2, 3])
+
+    def test_range_search_empty(self):
+        bst = BinarySearchTree()
+        bst.insert("2025-01-01", {"id": 1})
+        bst.insert("2025-01-10", {"id": 2})
+        items = bst.range_search("2025-02-01", "2025-02-28")
+        self.assertEqual(items, [])
 
 
 class TestHeap(unittest.TestCase):

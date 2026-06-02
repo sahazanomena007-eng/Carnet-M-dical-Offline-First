@@ -379,6 +379,92 @@ class AVLTree:
             self._inorder(node.right, result)
 
 
+# ============================================================
+# ALGORITHME 7: LEVENSHTEIN — Distance d'edition O(n*m)
+# ============================================================
+
+def levenshtein_distance(a: str, b: str) -> int:
+    """Calcule la distance de Levenshtein entre deux chaines"""
+    m, n = len(a), len(b)
+    dp = [[0] * (n + 1) for _ in range(m + 1)]
+    for i in range(m + 1): dp[i][0] = i
+    for j in range(n + 1): dp[0][j] = j
+    for i in range(1, m + 1):
+        for j in range(1, n + 1):
+            cost = 0 if a[i - 1] == b[j - 1] else 1
+            dp[i][j] = min(dp[i - 1][j] + 1, dp[i][j - 1] + 1, dp[i - 1][j - 1] + cost)
+    return dp[m][n]
+
+
+def fuzzy_search(query: str, texts: List[str], threshold: int = 3) -> List[int]:
+    """Recherche floue retournant les indices des textes proches du query"""
+    q = query.lower()
+    indices = []
+    for i, t in enumerate(texts):
+        d = levenshtein_distance(q, t.lower()[:max(len(t), len(q))])
+        if d <= threshold:
+            indices.append(i)
+    return indices
+
+
+# ============================================================
+# ALGORITHME 8: BST — Arbre Binaire de Recherche (filtre dates)
+# ============================================================
+
+class BSTNode:
+    def __init__(self, key: str, value: Any):
+        self.key = key
+        self.value = value
+        self.left: Optional['BSTNode'] = None
+        self.right: Optional['BSTNode'] = None
+
+
+class BinarySearchTree:
+    def __init__(self):
+        self.root: Optional[BSTNode] = None
+
+    def insert(self, key: str, value: Any):
+        self.root = self._insert(self.root, key, value)
+
+    def _insert(self, node: Optional[BSTNode], key: str, value: Any) -> BSTNode:
+        if node is None:
+            return BSTNode(key, value)
+        if key < node.key:
+            node.left = self._insert(node.left, key, value)
+        elif key > node.key:
+            node.right = self._insert(node.right, key, value)
+        else:
+            node.value = value
+        return node
+
+    def range_search(self, min_key: str, max_key: str) -> List[Any]:
+        """Retourne toutes les valeurs dont la cle est dans [min_key, max_key]"""
+        result = []
+        self._range_search(self.root, min_key, max_key, result)
+        return result
+
+    def _range_search(self, node: Optional[BSTNode], mn: str, mx: str, result: List[Any]):
+        if node is None:
+            return
+        if node.key > mn:
+            self._range_search(node.left, mn, mx, result)
+        if mn <= node.key <= mx:
+            result.append(node.value)
+        if node.key < mx:
+            self._range_search(node.right, mn, mx, result)
+
+    def inorder(self) -> List[Any]:
+        result = []
+        self._inorder(self.root, result)
+        return result
+
+    def _inorder(self, node: Optional[BSTNode], result: List[Any]):
+        if node:
+            self._inorder(node.left, result)
+            result.append(node.value)
+            self._inorder(node.right, result)
+
+
 # Tas (Heap) pour les rendez-vous prioritaires
 class AppointmentHeap:
     """Tas min pour gerer les rendez-vous par priorite"""

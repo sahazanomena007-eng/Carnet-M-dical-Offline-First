@@ -647,3 +647,40 @@ def create_examen(patient_id: int, consultation_id: int, medecin_id: int, type_e
          resultats, valeurs, fichier_url, date_examen),
         commit=True
     )
+
+
+def get_notifications(user_id: int, limit: int = 20):
+    return _execute(
+        'SELECT * FROM notifications WHERE user_id = ? ORDER BY created_at DESC LIMIT ?',
+        (user_id, limit), fetchall=True
+    ) or []
+
+
+def create_notification(user_id: int, type_notif: str, titre: str, message: str, data: str = None) -> int:
+    return _execute(
+        'INSERT INTO notifications (user_id, type, titre, message, data) VALUES (?, ?, ?, ?, ?)',
+        (user_id, type_notif, titre, message, data), commit=True
+    )
+
+
+def get_vaccins(patient_id: int):
+    """Retourne les examens de type vaccination"""
+    return _execute(
+        "SELECT * FROM examens WHERE patient_id = ? AND LOWER(type_examen) LIKE '%vaccin%' ORDER BY date_examen DESC",
+        (patient_id,), fetchall=True
+    ) or []
+
+
+def calcul_age(date_naissance: str) -> int:
+    if not date_naissance:
+        return 0
+    try:
+        from datetime import date
+        birth = date.fromisoformat(date_naissance)
+        today = date.today()
+        age = today.year - birth.year
+        if (today.month, today.day) < (birth.month, birth.day):
+            age -= 1
+        return age
+    except Exception:
+        return 0

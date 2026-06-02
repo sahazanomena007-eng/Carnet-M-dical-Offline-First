@@ -18,8 +18,10 @@ from models.medecin_model import MedecinModel
 from models.patient_model import PatientModel
 from algorithms import (
     search_medical_history, PatientHashTable, Appointment,
-    greedy_schedule_optimization, Medicament, optimize_prescriptions_dp
+    greedy_schedule_optimization, Medicament, optimize_prescriptions_dp,
+    levenshtein_distance, fuzzy_search, BinarySearchTree,
 )
+import db
 
 
 class MedecinView(QMainWindow):
@@ -230,17 +232,149 @@ class MedecinView(QMainWindow):
         al.addWidget(self.assoc_code_label)
         layout.addWidget(assoc)
 
-        self.patients_table = TableWithEmpty(["Patient", "Dossier", "Naissance", "Telephone", "Statut"], "patients")
+        fuzzy_row = QWidget()
+        fl = QHBoxLayout(fuzzy_row)
+        fl.setContentsMargins(0, 0, 0, 8)
+        fl.addWidget(QLabel("Recherche floue (Levenshtein):"))
+        self.fuzzy_search_input = QLineEdit()
+        self.fuzzy_search_input.setPlaceholderText("Nom du patient...")
+        self.fuzzy_search_input.textChanged.connect(self._filter_patients_fuzzy)
+        fl.addWidget(self.fuzzy_search_input, 1)
+        self.fuzzy_threshold_combo = QComboBox()
+        self.fuzzy_threshold_combo.addItems(["1", "2", "3", "4"])
+        self.fuzzy_threshold_combo.setCurrentIndex(2)
+        self.fuzzy_threshold_combo.currentIndexChanged.connect(self._filter_patients_fuzzy)
+        fl.addWidget(QLabel("Seuil:"))
+        fl.addWidget(self.fuzzy_threshold_combo)
+        layout.addWidget(fuzzy_row)
+
+        self.patients_table = TableWithEmpty(["Patient", "Dossier", "Naissance", "Telephone", "Statut", "Action"], "patients")
         layout.addWidget(self.patients_table, 1)
         return page
 
-    def _refresh_patients(self):
-        patients = MedecinModel.get_patients(self.medecin['id'])
+    def _filter_patients_fuzzy(self):
+        """Filtre les patients par recherche floue Levenshtein"""
+        query = self.fuzzy_search_input.text().strip()
+        threshold = int(self.fuzzy_threshold_combo.currentText())
+        all_patients = MedecinModel.get_patients(self.medecin['id'])
+        if not query:
+            self._display_patients(all_patients)
+            return
+        texts = [f"{p.get('prenom','')} {p.get('nom','')}".lower() for p in all_patients]
+        indices = fuzzy_search(query, texts, threshold)
+        filtered = [all_patients[i] for i in indices]
+        self._display_patients(filtered)
+
+    def _display_patients(self, patients):
         data = []
         for p in patients:
             data.append([f"{p.get('prenom','')} {p.get('nom','')}", p.get('numero_dossier',''),
-                         p.get('date_naissance',''), p.get('telephone',''), p.get('statut','')])
+                         p.get('date_naissance',''), p.get('telephone',''), p.get('statut',''), ""])
         self.patients_table.set_data(data)
+        for r, p in enumerate(patients):
+            btn = make_btn("Voir dossier", "primary")
+            btn.clicked.connect(lambda checked, pid=p['id']: self._show_patient_dossier(pid))
+            self.patients_table.table.setCellWidget(r, 5, btn)
+
+    def _refresh_patients(self):
+        patients = MedecinModel.get_patients(self.medecin['id'])
+        self._display_patients(patients)
+
+    def _show_patient_dossier(self, patient_id):
+        """Affiche le dossier complet d'un patient"""
+        patient = PatientModel.get_patient(patient_id=patient_id)
+        if not patient:
+            from PyQt5.QtWidgets import QMessageBox
+            QMessageBox.critical(self, "Erreur", "Patient introuvable.")
+            return
+        age = db.calcul_age(patient.get('date_naissance',''))
+        consults = PatientModel.get_consultations(patient_id)
+        prescs = PatientModel.get_prescriptions(patient_id)
+        allergies = PatientModel.get_allergies(patient_id)
+        vaccins = PatientModel.get_vaccins(patient_id)
+        rdvs = PatientModel.get_rendezvous(patient_id)
+
+        dialog = QDialog(self)
+        dialog.setWindowTitle(f"Dossier patient - {patient.get('prenom','')} {patient.get('nom','')}")
+        dialog.setMinimumSize(700, 500)
+        dialog.setStyleSheet(f"QDialog {{ background: {C_WHITE}; }}")
+        layout = QVBoxLayout(dialog); layout.setContentsMargins(20, 20, 20, 20)
+
+        title = QLabel(f"Dossier de {patient.get('prenom','')} {patient.get('nom','')}")
+        title.setStyleSheet(f"font-size: 20px; font-weight: 800; color: {C_TEXT};")
+        layout.addWidget(title)
+
+        info = QWidget()
+        infol = QHBoxLayout(info)
+        for l, v in [
+            ("N Dossier", patient.get('numero_dossier','')), ("Age", f"{age} ans"),
+            ("Groupe", patient.get('groupe_sanguin','N/A')),
+            ("Vaccins", str(len(vaccins))),
+        ]:
+            lbl = QLabel(f"<b>{l}:</b> {v}")
+            lbl.setStyleSheet(f"color: {C_TEXT}; font-size: 13px;")
+            infol.addWidget(lbl)
+        layout.addWidget(info)
+
+        if patient.get('antecedents_personnels'):
+            mal = QLabel(f"<b>Maladies:</b> {patient['antecedents_personnels']}")
+            mal.setStyleSheet(f"background: #FEF3C7; color: #92400E; padding: 8px; border-radius: 8px; font-size: 13px; margin: 4px 0;")
+            layout.addWidget(mal)
+
+        tabs = QWidget()
+        tabs_layout = QVBoxLayout(tabs)
+        tabs_layout.setSpacing(4)
+
+        tab_consults = QLabel(f"<b>Consultations ({len(consults)}):</b>")
+        tab_consults.setStyleSheet(f"font-size: 14px; color: {C_PRIMARY};")
+        tabs_layout.addWidget(tab_consults)
+        for c in consults[:5]:
+            lbl = QLabel(f"  - {c.get('date_consultation','')} {c.get('heure_consultation','')} | {c.get('motif','')}")
+            lbl.setStyleSheet(f"color: {C_TEXT_SEC}; font-size: 12px;")
+            tabs_layout.addWidget(lbl)
+        if len(consults) > 5:
+            more = QLabel(f"  ... et {len(consults)-5} autre(s)")
+            more.setStyleSheet(f"color: {C_TEXT_LIGHT}; font-size: 11px; font-style: italic;")
+            tabs_layout.addWidget(more)
+
+        tab_allergies = QLabel(f"<b>Allergies ({len(allergies)}):</b>")
+        tab_allergies.setStyleSheet(f"font-size: 14px; color: {C_DANGER}; margin-top: 8px;")
+        tabs_layout.addWidget(tab_allergies)
+        for a in allergies:
+            lbl = QLabel(f"  - {a.get('allergene','')} ({a.get('type_reaction','')})")
+            lbl.setStyleSheet(f"color: {C_TEXT_SEC}; font-size: 12px;")
+            tabs_layout.addWidget(lbl)
+
+        tab_vaccins = QLabel(f"<b>Vaccins ({len(vaccins)}):</b>")
+        tab_vaccins.setStyleSheet(f"font-size: 14px; color: #10B981; margin-top: 8px;")
+        tabs_layout.addWidget(tab_vaccins)
+        for v in vaccins:
+            lbl = QLabel(f"  - {v.get('type_examen','')} ({v.get('date_examen','')})")
+            lbl.setStyleSheet(f"color: {C_TEXT_SEC}; font-size: 12px;")
+            tabs_layout.addWidget(lbl)
+
+        scroll = QScrollArea()
+        scroll.setWidget(tabs); scroll.setWidgetResizable(True)
+        layout.addWidget(scroll, 1)
+
+        btn_row = QWidget()
+        brl = QHBoxLayout(btn_row)
+        btn_ordo = make_btn("Ordonnance PDF", "primary")
+        btn_ordo.clicked.connect(lambda: self._export_ordo_pdf(patient, prescs))
+        brl.addWidget(btn_ordo)
+        btn_cert = make_btn("Certificat PDF", "primary")
+        btn_cert.clicked.connect(lambda: self._export_certificat_pdf(patient, consults))
+        brl.addWidget(btn_cert)
+        btn_vacc = make_btn("Carnet Vaccinal PDF", "primary")
+        btn_vacc.clicked.connect(lambda: self._export_carnet_vaccinal_pdf(patient, vaccins))
+        brl.addWidget(btn_vacc)
+        brl.addStretch()
+        btn_close = QPushButton("Fermer")
+        btn_close.setObjectName("btnOutline")
+        btn_close.clicked.connect(dialog.accept)
+        brl.addWidget(btn_close)
+        layout.addWidget(btn_row)
+        dialog.exec()
 
     def _request_association(self):
         pid = self.assoc_patient_input.text().strip()
@@ -278,18 +412,90 @@ class MedecinView(QMainWindow):
         btn_new.clicked.connect(self._new_consultation)
         trl.addWidget(btn_new)
         layout.addWidget(title_row)
+
+        filter_row = QWidget()
+        fl = QHBoxLayout(filter_row)
+        fl.setContentsMargins(0, 0, 0, 8)
+        fl.addWidget(QLabel("Filtrer (BST):"))
+        self.filter_date_debut = QDateEdit()
+        self.filter_date_debut.setCalendarPopup(True); self.filter_date_debut.setDate(QDate(2024, 1, 1))
+        self.filter_date_debut.setSpecialValueText("Debut")
+        fl.addWidget(self.filter_date_debut)
+        fl.addWidget(QLabel("→"))
+        self.filter_date_fin = QDateEdit()
+        self.filter_date_fin.setCalendarPopup(True); self.filter_date_fin.setDate(QDate.currentDate())
+        self.filter_date_fin.setSpecialValueText("Fin")
+        fl.addWidget(self.filter_date_fin)
+        btn_filter = make_btn("Appliquer", "primary")
+        btn_filter.clicked.connect(self._refresh_consultations)
+        fl.addWidget(btn_filter)
+        btn_pdf = make_btn("Export PDF", "primary")
+        btn_pdf.clicked.connect(self._export_consultations_pdf)
+        fl.addWidget(btn_pdf)
+        self.filter_count_label = QLabel("")
+        self.filter_count_label.setStyleSheet(f"color: {C_TEXT_SEC}; font-size: 12px;")
+        fl.addWidget(self.filter_count_label)
+        fl.addStretch()
+        layout.addWidget(filter_row)
+
         self.consults_table = TableWithEmpty(["Patient", "Date", "Heure", "Motif", "Diagnostic", "Statut"], "consultations")
         layout.addWidget(self.consults_table, 1)
         return page
 
     def _refresh_consultations(self):
         consults = MedecinModel.get_consultations(self.medecin['id'])
-        data = []
+        debut = self.filter_date_debut.date().toString("yyyy-MM-dd")
+        fin = self.filter_date_fin.date().toString("yyyy-MM-dd")
+        bst = BinarySearchTree()
         for c in consults:
+            bst.insert(c.get('date_consultation', '1900-01-01'), c)
+        filtered = bst.range_search(debut, fin)
+        data = []
+        for c in filtered:
             data.append([f"{c.get('patient_prenom','')} {c.get('patient_nom','')}",
                          c.get('date_consultation',''), c.get('heure_consultation',''),
                          c.get('motif',''), c.get('diagnostic',''), c.get('statut','')])
         self.consults_table.set_data(data)
+        self.filter_count_label.setText(f"{len(filtered)}/{len(consults)} consultations")
+
+    def _export_consultations_pdf(self):
+        """Exporte la liste filtree des consultations en PDF"""
+        try:
+            from fpdf import FPDF
+            consults = MedecinModel.get_consultations(self.medecin['id'])
+            debut = self.filter_date_debut.date().toString("yyyy-MM-dd")
+            fin = self.filter_date_fin.date().toString("yyyy-MM-dd")
+            bst = BinarySearchTree()
+            for c in consults:
+                bst.insert(c.get('date_consultation', '1900-01-01'), c)
+            filtered = bst.range_search(debut, fin)
+
+            pdf = FPDF()
+            pdf.add_page()
+            pdf.set_font("Helvetica", "B", 16)
+            pdf.cell(0, 10, "Liste des Consultations", new_x="LMARGIN", new_y="NEXT", align="C")
+            pdf.set_font("Helvetica", "", 10)
+            pdf.cell(0, 8, f"Filtre: {debut} -> {fin}", new_x="LMARGIN", new_y="NEXT")
+            pdf.ln(4)
+            pdf.set_font("Helvetica", "B", 10)
+            col_w = [40, 25, 50, 50]
+            headers = ["Date", "Patient", "Motif", "Diagnostic"]
+            x_start = 10
+            for i, h in enumerate(headers):
+                pdf.cell(col_w[i], 8, h, border=1)
+            pdf.ln()
+            pdf.set_font("Helvetica", "", 9)
+            for c in filtered:
+                pdf.cell(col_w[0], 7, c.get('date_consultation','')[:10], border=1)
+                pdf.cell(col_w[1], 7, f"{c.get('patient_prenom','')} {c.get('patient_nom','')}"[:15], border=1)
+                pdf.cell(col_w[2], 7, (c.get('motif','') or '')[:25], border=1)
+                pdf.cell(col_w[3], 7, (c.get('diagnostic','') or '')[:25], border=1)
+                pdf.ln()
+            pdf.output(f"consultations_{debut}_{fin}.pdf")
+            self.show_toast(f"PDF exporte: {len(filtered)} consultations", "success")
+        except Exception as e:
+            from PyQt5.QtWidgets import QMessageBox
+            QMessageBox.critical(self, "Erreur PDF", str(e))
 
     def _new_consultation(self):
         dialog = QDialog(self)
@@ -297,7 +503,12 @@ class MedecinView(QMainWindow):
         dialog.setMinimumWidth(550)
         dialog.setStyleSheet(f"QDialog {{ background: {C_WHITE}; }}")
         layout = QFormLayout(dialog); layout.setSpacing(12); layout.setContentsMargins(24, 20, 24, 20)
-        pid_input = QLineEdit(); pid_input.setPlaceholderText("ID du patient")
+        patients_list = MedecinModel.get_patients(self.medecin['id'])
+        patient_combo = QComboBox()
+        patient_combo.addItem("-- Selectionner un patient --", None)
+        for p in patients_list:
+            label = f"{p.get('prenom','')} {p.get('nom','')} (N{p.get('numero_dossier','')})"
+            patient_combo.addItem(label, p.get('id'))
         date_c = QDateEdit(); date_c.setCalendarPopup(True); date_c.setDate(QDate.currentDate())
         heure_c = QTimeEdit(); heure_c.setTime(QTime.currentTime())
         motif = QTextEdit(); motif.setMaximumHeight(60)
@@ -305,7 +516,7 @@ class MedecinView(QMainWindow):
         diagnostic = QTextEdit(); diagnostic.setMaximumHeight(60)
         observations = QTextEdit(); observations.setMaximumHeight(60)
         traitement = QTextEdit(); traitement.setMaximumHeight(60)
-        layout.addRow("Patient ID:", pid_input); layout.addRow("Date:", date_c); layout.addRow("Heure:", heure_c)
+        layout.addRow("Patient:", patient_combo); layout.addRow("Date:", date_c); layout.addRow("Heure:", heure_c)
         layout.addRow("Motif:", motif); layout.addRow("Symptomes:", symptomes)
         layout.addRow("Diagnostic:", diagnostic); layout.addRow("Observations:", observations)
         layout.addRow("Traitement:", traitement)
@@ -313,24 +524,21 @@ class MedecinView(QMainWindow):
         btn_box.accepted.connect(dialog.accept); btn_box.rejected.connect(dialog.reject)
         layout.addRow(btn_box)
         if dialog.exec() == QDialog.Accepted:
-            pid = pid_input.text().strip()
-            if not pid or not motif.toPlainText().strip():
+            patient_id = patient_combo.currentData()
+            if not patient_id or not motif.toPlainText().strip():
                 from PyQt5.QtWidgets import QMessageBox
-                QMessageBox.warning(self, "Erreur", "Patient ID et motif requis.")
+                QMessageBox.warning(self, "Erreur", "Selectionnez un patient et un motif.")
                 return
-            patient = self.patient_cache.get(pid)
-            if not patient:
-                from PyQt5.QtWidgets import QMessageBox
-                QMessageBox.critical(self, "Erreur", "Patient introuvable.")
-                return
-            MedecinModel.create_consultation(patient['id'], self.medecin['id'],
+            MedecinModel.create_consultation(patient_id, self.medecin['id'],
                 date_c.date().toString("yyyy-MM-dd"), heure_c.time().toString("HH:mm"),
                 motif.toPlainText().strip(), symptomes.toPlainText().strip() or None,
                 diagnostic.toPlainText().strip() or None, observations.toPlainText().strip() or None,
                 traitement.toPlainText().strip() or None)
-            self._controller.log_action(self.user['id'], "medecin", "CREATE_CONSULTATION", "consultations", details=f"patient_id={patient['id']}")
+            db.create_notification(patient_id, "consultation_ajoutee", "Nouvelle consultation",
+                f"Consultation ajoutee le {date_c.date().toString('yyyy-MM-dd')}")
+            self._controller.log_action(self.user['id'], "medecin", "CREATE_CONSULTATION", "consultations", details=f"patient_id={patient_id}")
             self._refresh_consultations()
-            self.show_toast("Consultation creee avec succes", "success")
+            self.show_toast("Consultation creee avec succes (notification envoyee)", "success")
 
     # ===== RENDEZ-VOUS =====
     def _build_rendezvous(self):
@@ -368,41 +576,47 @@ class MedecinView(QMainWindow):
     def _new_rdv(self):
         dialog = QDialog(self)
         dialog.setWindowTitle("Nouveau rendez-vous")
-        dialog.setMinimumWidth(480)
+        dialog.setMinimumWidth(520)
         dialog.setStyleSheet(f"QDialog {{ background: {C_WHITE}; }}")
         layout = QFormLayout(dialog); layout.setSpacing(12); layout.setContentsMargins(24, 20, 24, 20)
-        pid_input = QLineEdit(); pid_input.setPlaceholderText("ID du patient")
+
+        # Patient dropdown
+        patients_list = MedecinModel.get_patients(self.medecin['id'])
+        patient_combo = QComboBox()
+        patient_combo.addItem("-- Selectionner un patient --", None)
+        for p in patients_list:
+            label = f"{p.get('prenom','')} {p.get('nom','')} (N{p.get('numero_dossier','')})"
+            patient_combo.addItem(label, p.get('id'))
+
         date_rdv = QDateEdit(); date_rdv.setCalendarPopup(True); date_rdv.setDate(QDate.currentDate())
         heure_deb = QTimeEdit(); heure_deb.setTime(QTime(9, 0))
         heure_fin = QTimeEdit(); heure_fin.setTime(QTime(9, 30))
         motif = QTextEdit(); motif.setMaximumHeight(60)
         type_rdv = QComboBox(); type_rdv.addItems(["consultation", "suivi", "urgence", "examen", "vaccination"])
         priorite = QComboBox(); priorite.addItems(["1 - Normal", "2 - Urgent", "3 - Critique"])
-        layout.addRow("Patient ID:", pid_input); layout.addRow("Date:", date_rdv)
+        layout.addRow("Patient:", patient_combo); layout.addRow("Date:", date_rdv)
         layout.addRow("Heure debut:", heure_deb); layout.addRow("Heure fin:", heure_fin)
         layout.addRow("Motif:", motif); layout.addRow("Type:", type_rdv); layout.addRow("Priorite:", priorite)
         btn_box = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
         btn_box.accepted.connect(dialog.accept); btn_box.rejected.connect(dialog.reject)
         layout.addRow(btn_box)
         if dialog.exec() == QDialog.Accepted:
-            pid = pid_input.text().strip()
-            if not pid or not motif.toPlainText().strip():
+            patient_id = patient_combo.currentData()
+            if not patient_id or not motif.toPlainText().strip():
                 from PyQt5.QtWidgets import QMessageBox
-                QMessageBox.warning(self, "Erreur", "Patient ID et motif requis.")
-                return
-            patient = self.patient_cache.get(pid)
-            if not patient:
-                from PyQt5.QtWidgets import QMessageBox
-                QMessageBox.critical(self, "Erreur", "Patient introuvable.")
+                QMessageBox.warning(self, "Erreur", "Selectionnez un patient et un motif.")
                 return
             prio = int(priorite.currentText()[0])
-            MedecinModel.create_rendezvous(patient['id'], self.medecin['id'],
+            MedecinModel.create_rendezvous(patient_id, self.medecin['id'],
                 date_rdv.date().toString("yyyy-MM-dd"), heure_deb.time().toString("HH:mm"),
                 heure_fin.time().toString("HH:mm"), motif.toPlainText().strip(),
                 type_rdv.currentText(), prio)
-            self._controller.log_action(self.user['id'], "medecin", "CREATE_RDV", "rendez_vous", details=f"patient_id={patient['id']}")
+            # Creer notification pour le patient
+            db.create_notification(patient_id, "rdv_confirm", "Nouveau rendez-vous",
+                f"Rendez-vous le {date_rdv.date().toString('yyyy-MM-dd')} a {heure_deb.time().toString('HH:mm')}")
+            self._controller.log_action(self.user['id'], "medecin", "CREATE_RDV", "rendez_vous", details=f"patient_id={patient_id}")
             self._refresh_rdv()
-            self.show_toast("Rendez-vous cree avec succes", "success")
+            self.show_toast("Rendez-vous cree avec succes (notification envoyee)", "success")
 
     def _optimize_rdv(self):
         rdvs = MedecinModel.get_rendezvous(self.medecin['id'])
@@ -563,6 +777,100 @@ class MedecinView(QMainWindow):
         lines.append(f"Budget utilise: {result['budget_used']:.0f}%")
         lines.append("Complexite: O(n x W)")
         result_area.setText("\n".join(lines))
+
+    # ===== PDF EXPORTS =====
+    def _export_ordo_pdf(self, patient, prescs):
+        try:
+            from fpdf import FPDF
+            pdf = FPDF()
+            pdf.add_page()
+            pdf.set_font("Helvetica", "B", 16)
+            pdf.cell(0, 10, "ORDONNANCE MEDICALE", new_x="LMARGIN", new_y="NEXT", align="C")
+            pdf.set_font("Helvetica", "", 10)
+            pdf.cell(0, 7, f"Dr. {self.medecin['prenom']} {self.medecin['nom']}", new_x="LMARGIN", new_y="NEXT")
+            pdf.cell(0, 7, f"Patient: {patient.get('prenom','')} {patient.get('nom','')} - N {patient.get('numero_dossier','')}", new_x="LMARGIN", new_y="NEXT")
+            pdf.cell(0, 7, f"Date: {date.today().isoformat()}", new_x="LMARGIN", new_y="NEXT")
+            pdf.ln(4)
+            pdf.set_font("Helvetica", "B", 12)
+            for i, pr in enumerate(prescs, 1):
+                pdf.cell(0, 7, f"{i}. {pr.get('titre','')}", new_x="LMARGIN", new_y="NEXT")
+                pdf.set_font("Helvetica", "", 10)
+                contenu = pr.get('contenu','') or ''
+                for line in contenu.split('\n')[:3]:
+                    pdf.cell(0, 6, line, new_x="LMARGIN", new_y="NEXT")
+                pdf.cell(0, 6, f"Duree: {pr.get('date_debut','')} - {pr.get('date_fin','')}", new_x="LMARGIN", new_y="NEXT")
+                pdf.set_font("Helvetica", "B", 12)
+            pdf.ln(10)
+            pdf.cell(0, 10, "Signature du medecin:", new_x="LMARGIN", new_y="NEXT")
+            pdf.output(f"ordonnance_{patient.get('nom','')}_{patient.get('prenom','')}.pdf")
+            self.show_toast("Ordonnance PDF exportee", "success")
+        except Exception as e:
+            from PyQt5.QtWidgets import QMessageBox
+            QMessageBox.critical(self, "Erreur PDF", str(e))
+
+    def _export_certificat_pdf(self, patient, consults):
+        try:
+            from fpdf import FPDF
+            pdf = FPDF()
+            pdf.add_page()
+            pdf.set_font("Helvetica", "B", 16)
+            pdf.cell(0, 10, "CERTIFICAT MEDICAL", new_x="LMARGIN", new_y="NEXT", align="C")
+            pdf.set_font("Helvetica", "", 11)
+            pdf.cell(0, 8, "Je soussigne, medecin traitant, certifie avoir examine le patient:", new_x="LMARGIN", new_y="NEXT")
+            pdf.set_font("Helvetica", "B", 12)
+            pdf.cell(0, 8, f"{patient.get('prenom','')} {patient.get('nom','')} - Ne(e) le {patient.get('date_naissance','')}", new_x="LMARGIN", new_y="NEXT")
+            pdf.ln(4)
+            pdf.set_font("Helvetica", "", 11)
+            pdf.cell(0, 7, "Motifs de consultation recents:", new_x="LMARGIN", new_y="NEXT")
+            pdf.set_font("Helvetica", "", 9)
+            for c in consults[:5]:
+                pdf.cell(0, 6, f"- {c.get('date_consultation','')[:10]}: {c.get('motif','')}", new_x="LMARGIN", new_y="NEXT")
+                if c.get('diagnostic'):
+                    pdf.cell(0, 5, f"  Diag: {c.get('diagnostic','')}", new_x="LMARGIN", new_y="NEXT")
+            pdf.ln(8)
+            pdf.set_font("Helvetica", "", 11)
+            pdf.cell(0, 7, "Ce certificat est delivre pour faire valoir ce que de droit.", new_x="LMARGIN", new_y="NEXT")
+            pdf.cell(0, 7, f"Fait a Antananarivo, le {date.today().isoformat()}", new_x="LMARGIN", new_y="NEXT")
+            pdf.ln(10)
+            pdf.cell(0, 10, "Signature et cachet du medecin:", new_x="LMARGIN", new_y="NEXT")
+            pdf.output(f"certificat_{patient.get('nom','')}_{patient.get('prenom','')}.pdf")
+            self.show_toast("Certificat PDF exporte", "success")
+        except Exception as e:
+            from PyQt5.QtWidgets import QMessageBox
+            QMessageBox.critical(self, "Erreur PDF", str(e))
+
+    def _export_carnet_vaccinal_pdf(self, patient, vaccins):
+        try:
+            from fpdf import FPDF
+            pdf = FPDF()
+            pdf.add_page()
+            pdf.set_font("Helvetica", "B", 16)
+            pdf.cell(0, 10, "CARNET DE VACCINATION", new_x="LMARGIN", new_y="NEXT", align="C")
+            pdf.set_font("Helvetica", "", 11)
+            pdf.cell(0, 7, f"Patient: {patient.get('prenom','')} {patient.get('nom','')}", new_x="LMARGIN", new_y="NEXT")
+            pdf.cell(0, 7, f"N Dossier: {patient.get('numero_dossier','')}", new_x="LMARGIN", new_y="NEXT")
+            pdf.cell(0, 7, f"Date naissance: {patient.get('date_naissance','')}", new_x="LMARGIN", new_y="NEXT")
+            pdf.ln(4)
+            if vaccins:
+                col_w = [60, 40, 60]
+                pdf.set_font("Helvetica", "B", 10)
+                for i, h in enumerate(["Vaccin", "Date", "Resultat"]):
+                    pdf.cell(col_w[i], 8, h, border=1)
+                pdf.ln()
+                pdf.set_font("Helvetica", "", 9)
+                for v in vaccins:
+                    pdf.cell(col_w[0], 7, v.get('type_examen','')[:25], border=1)
+                    d = v.get('date_examen','') or ''
+                    pdf.cell(col_w[1], 7, str(d)[:10], border=1)
+                    pdf.cell(col_w[2], 7, (v.get('resultat','') or 'N/R')[:25], border=1)
+                    pdf.ln()
+            else:
+                pdf.cell(0, 7, "Aucun vaccin enregistre.", new_x="LMARGIN", new_y="NEXT")
+            pdf.output(f"carnet_vaccinal_{patient.get('nom','')}_{patient.get('prenom','')}.pdf")
+            self.show_toast("Carnet vaccinal PDF exporte", "success")
+        except Exception as e:
+            from PyQt5.QtWidgets import QMessageBox
+            QMessageBox.critical(self, "Erreur PDF", str(e))
 
     # ===== RECHERCHE =====
     def _build_recherche(self):

@@ -64,3 +64,15 @@ class PatientModel:
     @staticmethod
     def create_examen(patient_id, type_examen, resultats, date_examen):
         return db.create_examen(patient_id, 0, 0, type_examen, resultats, date_examen=date_examen)
+
+    @staticmethod
+    def get_vaccins(patient_id):
+        return db.get_vaccins(patient_id)
+
+    @staticmethod
+    def get_notifications(user_id):
+        return db.get_notifications(user_id)
+
+    @staticmethod
+    def calcul_age(date_naissance):
+        return db.calcul_age(date_naissance)
