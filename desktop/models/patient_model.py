@@ -46,8 +46,12 @@ class PatientModel:
         return len(links)
 
     @staticmethod
-    def validate_link(code, patient_id):
-        return db.validate_link(code, patient_id)
+    def accept_link(link_id):
+        return db.accept_link(link_id)
+
+    @staticmethod
+    def refuse_link(link_id):
+        return db.refuse_link(link_id)
 
     @staticmethod
     def revoke_link(link_id):

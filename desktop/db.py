@@ -394,6 +394,42 @@ def validate_link(code: str, patient_id: int) -> bool:
     return True
 
 
+def accept_link(link_id: int) -> bool:
+    link = _execute(
+        'SELECT * FROM patient_medecin_links WHERE id = ? AND statut = ?',
+        (link_id, 'en_attente'),
+        fetchone=True
+    )
+    if not link:
+        return False
+    _execute(
+        '''UPDATE patient_medecin_links
+           SET statut = 'actif', date_validation = ?
+           WHERE id = ?''',
+        (datetime.now().isoformat(), link_id),
+        commit=True
+    )
+    return True
+
+
+def refuse_link(link_id: int) -> bool:
+    link = _execute(
+        'SELECT * FROM patient_medecin_links WHERE id = ? AND statut = ?',
+        (link_id, 'en_attente'),
+        fetchone=True
+    )
+    if not link:
+        return False
+    _execute(
+        '''UPDATE patient_medecin_links
+           SET statut = 'revoque', date_revocation = ?, revoked_by = 'patient'
+           WHERE id = ?''',
+        (datetime.now().isoformat(), link_id),
+        commit=True
+    )
+    return True
+
+
 def revoke_link(link_id: int, revoked_by: str = 'patient') -> bool:
     if revoked_by not in ('patient', 'medecin'):
         revoked_by = 'patient'

@@ -1,8 +1,8 @@
 from PyQt5.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit,
-    QPushButton, QStackedWidget, QFrame, QSplitter, QDialog, QFormLayout,
+    QPushButton, QStackedWidget, QFrame, QDialog, QFormLayout,
     QTextEdit, QComboBox, QDateEdit, QTimeEdit, QDialogButtonBox,
-    QHeaderView, QGraphicsDropShadowEffect
+    QHeaderView, QMessageBox
 )
 from PyQt5.QtCore import Qt, QDate, QTime
 from datetime import date
@@ -12,11 +12,13 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 from views.components import (
     STYLE_BASE, C_BG, C_WHITE, C_PRIMARY, C_PRIMARY_DARK, C_PRIMARY_LIGHT,
     C_SUCCESS, C_DANGER, C_WARNING, C_TEXT, C_TEXT_SEC, C_TEXT_LIGHT, C_BORDER,
-    C_SUCCESS_LIGHT, C_WARNING_LIGHT, make_btn, page_title, section_title,
-    CardWidget, StatCard, Sidebar, TableWithEmpty, ToastNotification
+    C_SUCCESS_LIGHT, C_DANGER_LIGHT, C_WARNING_LIGHT, C_INFO_LIGHT,
+    CARD_STYLE, add_shadow, QColor,
+    make_btn, page_title, section_title, CardWidget, StatCard, Sidebar,
+    TableWithEmpty, ToastNotification, StatusBadge
 )
 from models.patient_model import PatientModel
-from algorithms import search_medical_history, PatientHashTable, AVLTree
+from algorithms import search_medical_history
 import db
 
 
@@ -26,8 +28,8 @@ class PatientView(QMainWindow):
         self.patient = patient
         self.user = user
         self._controller = controller
-        self.setWindowTitle(f"Carnet Medical - {patient['prenom']} {patient['nom']}")
-        self.setMinimumSize(1200, 750)
+        self.setWindowTitle(f"Carnet Médical - {patient['prenom']} {patient['nom']} (Patient)")
+        self.setMinimumSize(1260, 780)
         self.setStyleSheet(STYLE_BASE)
 
         central = QWidget()
@@ -36,31 +38,15 @@ class PatientView(QMainWindow):
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(0)
 
-        # Sidebar
-        profile = QFrame()
-        profile.setStyleSheet(f"background: {C_PRIMARY_DARK}; padding: 20px;")
-        pl = QVBoxLayout(profile)
-        pl.setContentsMargins(16, 20, 16, 20)
-        pl.setSpacing(4)
-        avatar = QLabel("[P]")  # Professional patient indicator
-        avatar.setStyleSheet(f"font-size: 36px; font-weight: 800; color: white; text-align: center; width: 60px; height: 60px; line-height: 60px; background: {C_PRIMARY}; border-radius: 12px;")
-        avatar.setAlignment(Qt.AlignCenter)
-        pl.addWidget(avatar)
-        self.sb_name = QLabel(f"{patient['prenom']} {patient['nom']}")
-        self.sb_name.setStyleSheet("font-size: 16px; font-weight: 700; color: white;")
-        pl.addWidget(self.sb_name)
-        self.sb_dos = QLabel(f"Dossier: {patient.get('numero_dossier','')}")
-        self.sb_dos.setStyleSheet(f"font-size: 11px; color: #93C5FD;")
-        pl.addWidget(self.sb_dos)
-
+        profile = self._make_profile()
         nav_items = [
-            ("tableau_bord", "Tableau de bord"),
-            ("carnet", "Mon Carnet"),
-            ("medecins", "Mes Medecins"),
-            ("rendezvous", "Rendez-vous"),
-            ("prescriptions", "Prescriptions"),
-            ("allergies", "Allergies"),
-            ("examens", "Examens"),
+            ("tableau_bord", "Tableau de bord", "📊"),
+            ("carnet", "Mon Carnet", "📋"),
+            ("medecins", "Mes Médecins", "👨‍⚕️"),
+            ("rendezvous", "Rendez-vous", "📅"),
+            ("prescriptions", "Prescriptions", "💊"),
+            ("allergies", "Allergies", "⚠️"),
+            ("examens", "Examens", "🔬"),
         ]
         self.sidebar = Sidebar(nav_items, profile)
         self.sidebar.logout_btn.clicked.connect(self._on_logout)
@@ -68,10 +54,8 @@ class PatientView(QMainWindow):
             btn.clicked.connect(lambda checked, k=key: self._show_page(k))
         layout.addWidget(self.sidebar)
 
-        # Main content
         self.content_stack = QStackedWidget()
-        self.pages = {}
-        creators = [
+        builders = [
             ("tableau_bord", self._build_dashboard),
             ("carnet", self._build_carnet),
             ("medecins", self._build_medecins),
@@ -80,12 +64,46 @@ class PatientView(QMainWindow):
             ("allergies", self._build_allergies),
             ("examens", self._build_examens),
         ]
-        for key, creator in creators:
-            page = creator()
-            self.pages[key] = page
-            self.content_stack.addWidget(page)
+        self.pages = {}
+        for key, builder in builders:
+            p = builder()
+            self.pages[key] = p
+            self.content_stack.addWidget(p)
         layout.addWidget(self.content_stack, 1)
         self._show_page("tableau_bord")
+
+    def _make_profile(self):
+        p = self.patient
+        w = QFrame()
+        w.setStyleSheet(f"background: linear-gradient(180deg, {C_PRIMARY_DARK}, #0B4B8A);")
+        l = QVBoxLayout(w)
+        l.setContentsMargins(16, 24, 16, 20)
+        l.setSpacing(4)
+
+        avatar = QFrame()
+        avatar.setFixedSize(56, 56)
+        avatar.setStyleSheet(f"""
+            background: rgba(255,255,255,0.15); border-radius: 14px;
+            border: 2px solid rgba(255,255,255,0.3);
+        """)
+        av_l = QVBoxLayout(avatar)
+        av_l.setAlignment(Qt.AlignCenter)
+        av_t = QLabel("👤")
+        av_t.setStyleSheet("font-size: 24px;")
+        av_l.addWidget(av_t)
+        l.addWidget(avatar, alignment=Qt.AlignCenter)
+
+        self.sb_name = QLabel(f"{p['prenom']} {p['nom']}")
+        self.sb_name.setStyleSheet("font-size: 15px; font-weight: 700; color: white;")
+        self.sb_name.setAlignment(Qt.AlignCenter)
+        l.addWidget(self.sb_name)
+
+        self.sb_dos = QLabel(f"Dossier: {p.get('numero_dossier','N/A')}")
+        self.sb_dos.setStyleSheet("font-size: 11px; color: rgba(255,255,255,0.6);")
+        self.sb_dos.setAlignment(Qt.AlignCenter)
+        l.addWidget(self.sb_dos)
+
+        return w
 
     def _show_page(self, key):
         self.sidebar.set_active(key)
@@ -107,197 +125,173 @@ class PatientView(QMainWindow):
         self._controller.logout(self.user['id'], "patient")
 
     def show_toast(self, message, type="success"):
-        toast = ToastNotification(self.content_stack, message, type)
-        toast.show()
-        pw = self.content_stack.width()
-        toast.setGeometry(pw - 370, 16, 350, 52)
+        t = ToastNotification(self.content_stack, message, type)
+        t.show()
+        t.setGeometry(self.content_stack.width() - 370, 16, 350, 52)
 
-    # ===== DASHBOARD =====
+    def _page_container(self):
+        w = QWidget()
+        l = QVBoxLayout(w)
+        l.setContentsMargins(28, 28, 28, 28)
+        l.setSpacing(16)
+        return w, l
+
+    # ======================== DASHBOARD ========================
     def _build_dashboard(self):
-        page = QWidget()
-        layout = QVBoxLayout(page)
-        layout.setContentsMargins(28, 28, 28, 28)
+        page, layout = self._page_container()
 
         header = QWidget()
         hl = QHBoxLayout(header)
-        hl.setContentsMargins(0, 0, 0, 0)
+        hl.setContentsMargins(0, 0, 0, 8)
         self.dash_welcome = QLabel()
-        self.dash_welcome.setStyleSheet(f"font-size: 22px; font-weight: 700; color: {C_TEXT};")
+        self.dash_welcome.setStyleSheet(f"font-size: 26px; font-weight: 800; color: {C_TEXT}; letter-spacing: -0.3px;")
         hl.addWidget(self.dash_welcome)
-        self.dash_badge = QLabel()
-        self.dash_badge.setStyleSheet(f"background: {C_SUCCESS_LIGHT}; color: #065F46; padding: 6px 16px; border-radius: 20px; font-size: 13px; font-weight: 600;")
-        hl.addWidget(self.dash_badge)
         hl.addStretch()
+        self.dash_badge = QLabel()
+        hl.addWidget(self.dash_badge)
         layout.addWidget(header)
 
-        self.dash_stats = QWidget()
-        self.dash_stats.setLayout(QHBoxLayout())
-        layout.addWidget(self.dash_stats)
+        self.dash_stats_container = QWidget()
+        self.dash_stats_container.setLayout(QHBoxLayout())
+        layout.addWidget(self.dash_stats_container)
 
-        row2 = QSplitter(Qt.Horizontal)
-        info_card = CardWidget(" Informations personnelles")
-        self.dash_info = QWidget()
-        self.dash_info.setLayout(QFormLayout())
-        info_card.layout.addWidget(self.dash_info)
-        row2.addWidget(info_card)
+        info_card = CardWidget("Informations personnelles")
+        self.dash_info_widget = QWidget()
+        self.dash_info_widget.setLayout(QFormLayout())
+        info_card.layout.addWidget(self.dash_info_widget)
+        layout.addWidget(info_card)
 
-        quick_card = CardWidget(" Actions rapides")
-        self.dash_quick_layout = QVBoxLayout()
-        quick_card.layout.addLayout(self.dash_quick_layout)
-        row2.addWidget(quick_card)
-        row2.setSizes([400, 400])
-        layout.addWidget(row2, 1)
         return page
 
     def _refresh_dashboard(self):
         p = self.patient
-        self.dash_welcome.setText(f"Bonjour, {p['prenom']} {p['nom']}")
-        patient_id = p['id']
-        consults = PatientModel.get_consultations(patient_id)
-        prescs = PatientModel.get_prescriptions(patient_id)
-        rdvs = PatientModel.get_rendezvous(patient_id)
-        allergies = PatientModel.get_allergies(patient_id)
-        links = PatientModel.get_links(patient_id)
-        vaccins = PatientModel.get_vaccins(patient_id)
+        self.dash_welcome.setText(f"Bonjour, {p['prenom']} 👋")
+        pid = p['id']
+        consults = PatientModel.get_consultations(pid)
+        prescs = PatientModel.get_prescriptions(pid)
+        rdvs = PatientModel.get_rendezvous(pid)
+        allergies = PatientModel.get_allergies(pid)
+        links = PatientModel.get_links(pid)
+        vaccins = PatientModel.get_vaccins(pid)
         notifs = PatientModel.get_notifications(self.user['id'])
+        age = PatientModel.calcul_age(p.get('date_naissance', ''))
         today_rdvs = [r for r in rdvs if r.get('date_rdv') == date.today().isoformat()]
-        age = PatientModel.calcul_age(p.get('date_naissance',''))
 
-        badge = ""
+        badge_parts = []
         if today_rdvs:
-            badge = f"[!] {len(today_rdvs)} RDV aujourd'hui"
+            badge_parts.append(f"🔔 {len(today_rdvs)} RDV aujourd'hui")
         elif rdvs:
-            badge = f"Prochain: {rdvs[0].get('date_rdv','')}"
-        notif_non_lues = sum(1 for n in notifs if not n.get('lu'))
-        if notif_non_lues:
-            badge += f" | [{notif_non_lues} notification(s)]" if badge else f"[{notif_non_lues} notification(s)]"
-        self.dash_badge.setText(badge)
-        self.dash_badge.setVisible(bool(badge))
+            badge_parts.append(f"Prochain: {rdvs[0].get('date_rdv', '')}")
+        unread = sum(1 for n in notifs if not n.get('lu'))
+        if unread:
+            badge_parts.append(f"📬 {unread} notification(s)")
+        self.dash_badge.setText(" | ".join(badge_parts))
+        self.dash_badge.setStyleSheet(f"""
+            background: {C_INFO_LIGHT}; color: #0369A1; padding: 7px 18px;
+            border-radius: 20px; font-size: 13px; font-weight: 600;
+        """ if badge_parts else "")
+        self.dash_badge.setVisible(bool(badge_parts))
 
-        old = self.dash_stats.layout()
+        old = self.dash_stats_container.layout()
         while old.count():
             w = old.takeAt(0).widget()
-            if w: w.deleteLater()
+            if w:
+                w.deleteLater()
         stats_w = QWidget()
         sl = QHBoxLayout(stats_w)
-        sl.setSpacing(16)
-        for lbl, val, col, ic in [
-            ("Consultations", len(consults), C_PRIMARY, "C"),
-            ("Prescriptions", len(prescs), C_SUCCESS, "P"),
-            ("Rendez-vous", len(rdvs), C_WARNING, "R"),
-            ("Allergies", len(allergies), C_DANGER, "A"),
-            ("Medecins", len(links), "#8B5CF6,", "M"),
-            ("Vaccins", len(vaccins), "#10B981", "V"),
+        sl.setSpacing(14)
+        for lbl, val, col in [
+            ("Consultations", len(consults), C_PRIMARY),
+            ("Prescriptions", len(prescs), C_SUCCESS),
+            ("Rendez-vous", len(rdvs), C_WARNING),
+            ("Allergies", len(allergies), C_DANGER),
+            ("Médecins liés", len(links), "#8B5CF6"),
+            ("Vaccins", len(vaccins), "#10B981"),
         ]:
-            sl.addWidget(StatCard(lbl, val, col, ic))
+            sl.addWidget(StatCard(lbl, val, col))
         old.addWidget(stats_w)
 
-        info_layout = self.dash_info.layout()
-        while info_layout.count():
-            info_layout.removeRow(info_layout.rowCount() - 1)
-        for label, val in [
-            ("Dossier", p.get("numero_dossier","")),
-            ("Age", f"{age} ans" if age else "N/A"),
-            ("Date naissance", p.get("date_naissance","")),
-            ("Sexe", "Masculin" if p.get("sexe")=="M" else "Feminin"),
-            ("Groupe", p.get("groupe_sanguin","N/A")),
-            ("Taille", f'{p.get("taille_cm","")} cm' if p.get("taille_cm") else "N/A"),
-            ("Poids", f'{p.get("poids_kg","")} kg' if p.get("poids_kg") else "N/A"),
-            ("Telephone", p.get("telephone","N/A")),
-            ("Maladies", p.get("antecedents_personnels","Aucun")),
-            ("Vaccins", f"{len(vaccins)} enregistre(s)"),
-        ]:
-            l = QLabel(f"<b>{label}:</b>"); l.setStyleSheet(f"color: {C_TEXT_SEC};")
-            v = QLabel(str(val)); v.setStyleSheet(f"color: {C_TEXT}; font-weight: 500;")
-            info_layout.addRow(l, v)
+        info_l = self.dash_info_widget.layout()
+        while info_l.rowCount():
+            info_l.removeRow(0)
 
-        while self.dash_quick_layout.count():
-            w = self.dash_quick_layout.takeAt(0).widget()
-            if w: w.deleteLater()
-        for txt, cb in [
-            ("Records  Consulter mon carnet", lambda: self._show_page("carnet")),
-            ("Schedule  Mes rendez-vous", lambda: self._show_page("rendezvous")),
-            ("[M]  Gerer mes medecins", lambda: self._show_page("medecins")),
-        ]:
-            btn = QPushButton(txt)
-            btn.setCursor(Qt.PointingHandCursor)
-            btn.setStyleSheet(f"""
-                QPushButton {{ text-align: left; padding: 14px 18px; font-size: 14px;
-                    background: {C_WHITE}; border: 2px solid {C_BORDER}; border-radius: 16px;
-                    color: {C_TEXT}; font-weight: 500; }}
-                QPushButton:hover {{ background: {C_PRIMARY_LIGHT}; color: {C_PRIMARY}; border-color: {C_PRIMARY}; }}
-            """)
-            btn.clicked.connect(cb)
-            self.dash_quick_layout.addWidget(btn)
+        age_str = f"{age} ans" if age else "N/A"
+        rows = [
+            ("ID Patient", f"#{p['id']}  ·  {p.get('numero_dossier', 'N/A')}"),
+            ("Âge", age_str),
+            ("Date naissance", p.get("date_naissance", "N/A")),
+            ("Sexe", "Masculin" if p.get("sexe") == "M" else "Féminin"),
+            ("Groupe sanguin", p.get("groupe_sanguin", "N/A")),
+            ("Taille", f'{p.get("taille_cm", "")} cm' if p.get("taille_cm") else "N/A"),
+            ("Poids", f'{p.get("poids_kg", "")} kg' if p.get("poids_kg") else "N/A"),
+            ("Téléphone", p.get("telephone", "N/A")),
+            ("Antécédents", p.get("antecedents_personnels", "Aucun")),
+            ("Vaccins", f"{len(vaccins)} enregistré(s)"),
+        ]
+        for lbl, val in rows:
+            l = QLabel(lbl)
+            l.setStyleSheet(f"font-weight: 600; color: {C_TEXT_SEC}; font-size: 13px;")
+            v = QLabel(str(val))
+            v.setStyleSheet(f"font-weight: 500; color: {C_TEXT}; font-size: 13px;")
+            info_l.addRow(l, v)
 
-    # ===== CARNET =====
+    # ======================== CARNET ========================
     def _build_carnet(self):
-        page = QWidget()
-        layout = QVBoxLayout(page)
-        layout.setContentsMargins(28, 28, 28, 28)
-        layout.addWidget(page_title("Records  Mon Carnet Medical"))
+        page, layout = self._page_container()
+        layout.addWidget(page_title("Mon Carnet Médical"))
 
         search_bar = QWidget()
         sl = QHBoxLayout(search_bar)
-        sl.setContentsMargins(0, 0, 0, 12)
+        sl.setContentsMargins(0, 0, 0, 0)
         self.kmp_input = QLineEdit()
-        self.kmp_input.setPlaceholderText("Rechercher dans l'historique medical...")
-        self.kmp_input.returnPressed.connect(self._kmp_search)
-        btn_search = make_btn("Rechercher", "primary", "Search")
+        self.kmp_input.setPlaceholderText("🔍  Rechercher dans l'historique médical...")
+        btn_search = make_btn("Rechercher", "primary")
         btn_search.clicked.connect(self._kmp_search)
-        sl.addWidget(self.kmp_input, 1); sl.addWidget(btn_search)
+        sl.addWidget(self.kmp_input, 1)
+        sl.addSpacing(8)
+        sl.addWidget(btn_search)
         layout.addWidget(search_bar)
 
-        self.carnet_status = QLabel("Entrez un mot-cle pour trouver rapidement une consultation.")
-        self.carnet_status.setStyleSheet(f"color: {C_TEXT_SEC}; font-size: 13px; margin-bottom: 10px;")
+        self.carnet_status = QLabel("Entrez un mot-clé pour retrouver rapidement une consultation.")
+        self.carnet_status.setStyleSheet(f"color: {C_TEXT_SEC}; font-size: 13px;")
         layout.addWidget(self.carnet_status)
 
-        self.carnet_table = TableWithEmpty(["Date", "Heure", "Medecin", "Motif", "Diagnostic", "Observations", "Traitement"], "carnet")
+        self.carnet_table = TableWithEmpty(
+            ["Date", "Heure", "Médecin", "Motif", "Diagnostic", "Observations", "Traitement"],
+            "carnet"
+        )
         layout.addWidget(self.carnet_table, 1)
         return page
 
     def _refresh_carnet(self):
         self._load_consultations()
 
-    def _load_consultations(self, search_query=""):
+    def _load_consultations(self, query=""):
         consults = PatientModel.get_consultations(self.patient['id'])
-        if search_query:
-            consults = search_medical_history(consults, search_query)
-            self.carnet_status.setText(f"{len(consults)} resultat(s) trouve(s)")
+        if query:
+            consults = search_medical_history(consults, query)
+            self.carnet_status.setText(f"{len(consults)} résultat(s) trouvé(s)")
         else:
-            self.carnet_status.setText("Entrez un mot-cle pour trouver rapidement une consultation.")
-        data = []
-        for c in consults:
-            data.append([
-                c.get('date_consultation',''), c.get('heure_consultation',''),
-                f"{c.get('medecin_prenom','')} {c.get('medecin_nom','')}",
-                c.get('motif',''), c.get('diagnostic',''),
-                c.get('observations',''), c.get('traitement','')
-            ])
+            self.carnet_status.setText("Entrez un mot-clé pour retrouver rapidement une consultation.")
+        data = [[
+            c.get('date_consultation', ''), c.get('heure_consultation', ''),
+            f"{c.get('medecin_prenom', '')} {c.get('medecin_nom', '')}",
+            c.get('motif', ''), c.get('diagnostic', ''),
+            c.get('observations', ''), c.get('traitement', '')
+        ] for c in consults]
         self.carnet_table.set_data(data)
 
     def _kmp_search(self):
-        query = self.kmp_input.text().strip()
-        self._load_consultations(query)
+        self._load_consultations(self.kmp_input.text().strip())
 
-    # ===== MEDECINS =====
+    # ======================== MEDECINS ========================
     def _build_medecins(self):
-        page = QWidget()
-        layout = QVBoxLayout(page)
-        layout.setContentsMargins(28, 28, 28, 28)
-        layout.addWidget(page_title("[M]  Mes Medecins"))
-
-        assoc = QWidget()
-        al = QHBoxLayout(assoc)
-        al.setContentsMargins(0, 0, 0, 12)
-        self.assoc_code = QLineEdit()
-        self.assoc_code.setPlaceholderText("Entrez le code d'association fourni par votre medecin")
-        btn_assoc = make_btn("Valider l'association", "success", "\U00002714")
-        btn_assoc.clicked.connect(self._validate_association)
-        al.addWidget(self.assoc_code, 1); al.addWidget(btn_assoc)
-        layout.addWidget(assoc)
-
-        self.medecins_table = TableWithEmpty(["Medecin", "Specialite", "Etablissement", "Statut", "Telephone", "Action"], "medecins")
+        page, layout = self._page_container()
+        layout.addWidget(page_title("Mes Médecins"))
+        self.medecins_table = TableWithEmpty(
+            ["Médecin", "Spécialité", "Établissement", "Statut", "Téléphone", "Action"],
+            "medecins"
+        )
         layout.addWidget(self.medecins_table, 1)
         return page
 
@@ -305,194 +299,237 @@ class PatientView(QMainWindow):
         links = PatientModel.get_links(self.patient['id'])
         data = []
         for l in links:
-            data.append([f"Dr. {l.get('prenom','')} {l.get('nom','')}", l.get('specialite',''),
-                         l.get('etablissement',''), l.get('statut',''), l.get('telephone',''), ""])
+            statut = l.get('statut', '')
+            label_map = {"actif": "Actif", "en_attente": "En attente", "revoked": "Révoqué"}
+            data.append([
+                f"Dr. {l.get('prenom', '')} {l.get('nom', '')}",
+                l.get('specialite', ''),
+                l.get('etablissement', ''),
+                label_map.get(statut, statut),
+                l.get('telephone', ''),
+                ""
+            ])
         self.medecins_table.set_data(data)
         for r, l in enumerate(links):
-            if l.get('statut') == 'actif':
-                btn = make_btn("Revoguer", "danger", "\u274C")
+            statut = l.get('statut', '')
+            if statut == "en_attente":
+                w = QWidget()
+                bl = QHBoxLayout(w)
+                bl.setContentsMargins(4, 4, 4, 4)
+                bl.setSpacing(6)
+                ok = make_btn("Accepter", "success", "sm")
+                ok.clicked.connect(lambda checked, lid=l['id']: self._accept_medecin(lid))
+                no = make_btn("Refuser", "danger", "sm")
+                no.clicked.connect(lambda checked, lid=l['id']: self._refuse_medecin(lid))
+                bl.addWidget(ok); bl.addWidget(no)
+                self.medecins_table.table.setCellWidget(r, 5, w)
+            elif statut == "actif":
+                btn = make_btn("Révoquer", "danger", "sm")
                 btn.clicked.connect(lambda checked, lid=l['id']: self._revoke_medecin(lid))
                 self.medecins_table.table.setCellWidget(r, 5, btn)
-            elif l.get('statut') == 'en_attente':
-                lbl = QLabel("  \u23F3 En attente de validation")
-                lbl.setStyleSheet(f"color: {C_WARNING}; font-weight: 600; padding: 4px;")
+            else:
+                lbl = QLabel(l.get('statut', ''))
+                lbl.setStyleSheet(f"color: {C_TEXT_LIGHT}; padding: 6px;")
                 self.medecins_table.table.setCellWidget(r, 5, lbl)
 
-    def _validate_association(self):
-        code = self.assoc_code.text().strip()
-        if not code:
-            from PyQt5.QtWidgets import QMessageBox
-            QMessageBox.warning(self, "Erreur", "Entrez un code d'association.")
-            return
-        if PatientModel.validate_link(code, self.patient['id']):
-            self._controller.log_action(self.user['id'], "patient", "VALIDATE_ASSOCIATION", "patient_medecin_links", details=f"code={code}")
-            from PyQt5.QtWidgets import QMessageBox
-            QMessageBox.information(self, "Succes", "Association validee avec succes!")
-            self.assoc_code.clear()
+    def _accept_medecin(self, lid):
+        if PatientModel.accept_link(lid):
+            self._controller.log_action(self.user['id'], "patient", "ACCEPT_ASSOCIATION", "patient_medecin_links", lid)
+            QMessageBox.information(self, "Succès", "Vous êtes maintenant lié à ce médecin !")
             self._refresh_medecins()
         else:
-            from PyQt5.QtWidgets import QMessageBox
-            QMessageBox.critical(self, "Erreur", "Code invalide ou deja utilise.")
+            QMessageBox.warning(self, "Erreur", "Impossible d'accepter cette demande.")
 
-    def _revoke_medecin(self, link_id):
-        from PyQt5.QtWidgets import QMessageBox
-        if QMessageBox.question(self, "Confirmation", "Revoguer l'acces de ce medecin a votre dossier?",
-                                QMessageBox.Yes|QMessageBox.No) == QMessageBox.Yes:
-            PatientModel.revoke_link(link_id)
-            self._controller.log_action(self.user['id'], "patient", "REVOKE_MEDECIN", "patient_medecin_links", link_id)
+    def _refuse_medecin(self, lid):
+        if QMessageBox.question(self, "Confirmation", "Refuser cette demande d'association ?",
+                                QMessageBox.Yes | QMessageBox.No) == QMessageBox.Yes:
+            PatientModel.refuse_link(lid)
+            self._controller.log_action(self.user['id'], "patient", "REFUSE_ASSOCIATION", "patient_medecin_links", lid)
             self._refresh_medecins()
 
-    # ===== RENDEZ-VOUS =====
+    def _revoke_medecin(self, lid):
+        if QMessageBox.question(self, "Confirmation", "Révoquer l'accès de ce médecin à votre dossier ?",
+                                QMessageBox.Yes | QMessageBox.No) == QMessageBox.Yes:
+            PatientModel.revoke_link(lid)
+            self._controller.log_action(self.user['id'], "patient", "REVOKE_MEDECIN", "patient_medecin_links", lid)
+            self._refresh_medecins()
+
+    # ======================== RDV ========================
     def _build_rendezvous(self):
-        page = QWidget()
-        layout = QVBoxLayout(page)
-        layout.setContentsMargins(28, 28, 28, 28)
-        layout.addWidget(page_title("Schedule  Mes Rendez-vous"))
-        self.rdv_table = TableWithEmpty(["Date", "Heure", "Motif", "Type", "Statut"], "rdv")
+        page, layout = self._page_container()
+        layout.addWidget(page_title("Mes Rendez-vous"))
+        self.rdv_table = TableWithEmpty(
+            ["Date", "Horaire", "Motif", "Type", "Statut"],
+            "rdv"
+        )
         layout.addWidget(self.rdv_table, 1)
         return page
 
     def _refresh_rdv(self):
         rdvs = PatientModel.get_rendezvous(self.patient['id'])
-        data = []
-        for r in rdvs:
-            data.append([r.get('date_rdv',''), f"{r.get('heure_debut','')} - {r.get('heure_fin','')}",
-                         r.get('motif',''), r.get('type',''), r.get('statut','')])
+        data = [[
+            r.get('date_rdv', ''),
+            f"{r.get('heure_debut', '')} - {r.get('heure_fin', '')}",
+            r.get('motif', ''), r.get('type', ''), r.get('statut', '')
+        ] for r in rdvs]
         self.rdv_table.set_data(data)
 
-    # ===== PRESCRIPTIONS =====
+    # ======================== PRESCRIPTIONS ========================
     def _build_prescriptions(self):
-        page = QWidget()
-        layout = QVBoxLayout(page)
-        layout.setContentsMargins(28, 28, 28, 28)
-        layout.addWidget(page_title("Rx  Mes Prescriptions"))
-        self.presc_table = TableWithEmpty(["Titre", "Contenu", "Medecin", "Date debut", "Date fin", "Statut"], "prescriptions")
+        page, layout = self._page_container()
+        layout.addWidget(page_title("Mes Prescriptions"))
+        self.presc_table = TableWithEmpty(
+            ["Titre", "Contenu", "Médecin", "Date début", "Date fin", "Statut"],
+            "prescriptions"
+        )
         layout.addWidget(self.presc_table, 1)
         return page
 
     def _refresh_prescriptions(self):
         prescs = PatientModel.get_prescriptions(self.patient['id'])
-        data = []
-        for p in prescs:
-            data.append([p.get('titre',''), p.get('contenu',''),
-                         f"Dr. {p.get('medecin_prenom','')} {p.get('medecin_nom','')}",
-                         p.get('date_debut',''), p.get('date_fin',''), p.get('statut','')])
+        data = [[
+            p.get('titre', ''), p.get('contenu', ''),
+            f"Dr. {p.get('medecin_prenom', '')} {p.get('medecin_nom', '')}",
+            p.get('date_debut', ''), p.get('date_fin', ''), p.get('statut', '')
+        ] for p in prescs]
         self.presc_table.set_data(data)
 
-    # ===== ALLERGIES =====
+    # ======================== ALLERGIES ========================
     def _build_allergies(self):
-        page = QWidget()
-        layout = QVBoxLayout(page)
-        layout.setContentsMargins(28, 28, 28, 28)
+        page, layout = self._page_container()
 
-        title_row = QWidget()
-        trl = QHBoxLayout(title_row)
-        trl.setContentsMargins(0, 0, 0, 8)
-        t = QLabel("Alerts  Allergies")
-        t.setStyleSheet(f"font-size: 24px; font-weight: 800; color: {C_TEXT};")
-        trl.addWidget(t); trl.addStretch()
-        btn_add = make_btn("Ajouter une allergie", "warning", "\u2795")
+        header = QWidget()
+        hl = QHBoxLayout(header)
+        hl.setContentsMargins(0, 0, 0, 0)
+        hl.addWidget(page_title("Mes Allergies"))
+        hl.addStretch()
+        btn_add = make_btn("+ Ajouter une allergie", "warning")
         btn_add.clicked.connect(self._add_allergie)
-        trl.addWidget(btn_add)
-        layout.addWidget(title_row)
+        hl.addWidget(btn_add)
+        layout.addWidget(header)
 
-        self.allergies_table = TableWithEmpty(["Allergene", "Reaction", "Description", "Date", "Action"], "allergies")
+        self.allergies_table = TableWithEmpty(
+            ["Allergène", "Réaction", "Description", "Date", "Action"],
+            "allergies"
+        )
         layout.addWidget(self.allergies_table, 1)
         return page
 
     def _refresh_allergies(self):
         allergies = PatientModel.get_allergies(self.patient['id'])
-        data = []
-        for a in allergies:
-            data.append([a.get('allergene',''), a.get('type_reaction',''), a.get('description',''),
-                         a.get('date_diagnostic','') or a.get('created_at',''), ""])
+        data = [[
+            a.get('allergene', ''), a.get('type_reaction', ''),
+            a.get('description', ''),
+            a.get('date_diagnostic', '') or a.get('created_at', ''),
+            ""
+        ] for a in allergies]
         self.allergies_table.set_data(data)
         for r, a in enumerate(allergies):
-            btn = make_btn("Supprimer", "danger", "\u274C")
+            btn = make_btn("Supprimer", "danger", "sm")
             btn.clicked.connect(lambda checked, aid=a['id']: self._delete_allergie(aid))
             self.allergies_table.table.setCellWidget(r, 4, btn)
 
     def _add_allergie(self):
-        dialog = QDialog(self)
-        dialog.setWindowTitle("Ajouter une allergie")
-        dialog.setMinimumWidth(450)
-        dialog.setStyleSheet(f"QDialog {{ background: {C_WHITE}; }}")
-        layout = QFormLayout(dialog)
-        layout.setSpacing(12); layout.setContentsMargins(24, 20, 24, 20)
-        allergene = QLineEdit(); allergene.setPlaceholderText("Ex: Penicilline")
-        reaction = QComboBox(); reaction.addItems(["legere", "moderee", "severe", "anaphylaxie"])
-        description = QTextEdit(); description.setPlaceholderText("Description des symptomes..."); description.setMaximumHeight(80)
-        date_diag = QDateEdit(); date_diag.setCalendarPopup(True); date_diag.setDate(QDate.currentDate())
-        layout.addRow("Allergene:", allergene); layout.addRow("Reaction:", reaction)
-        layout.addRow("Description:", description); layout.addRow("Date diagnostic:", date_diag)
-        btn_box = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
-        btn_box.accepted.connect(dialog.accept); btn_box.rejected.connect(dialog.reject)
-        layout.addRow(btn_box)
-        if dialog.exec() == QDialog.Accepted and allergene.text().strip():
-            PatientModel.create_allergie(self.patient['id'], allergene.text().strip(),
-                                         reaction.currentText(), description.toPlainText().strip() or None,
-                                         date_diag.date().toString("yyyy-MM-dd"))
-            self._controller.log_action(self.user['id'], "patient", "ADD_ALLERGIE", "allergies", details=f"allergene={allergene.text()}")
-            self._refresh_allergies()
-            self.show_toast("Allergie ajoutee avec succes", "success")
+        d = QDialog(self)
+        d.setWindowTitle("Ajouter une allergie")
+        d.setMinimumWidth(460)
+        d.setStyleSheet(f"QDialog {{ background: {C_WHITE}; }}")
+        l = QFormLayout(d)
+        l.setSpacing(14); l.setContentsMargins(28, 24, 28, 24)
 
-    def _delete_allergie(self, allergy_id):
-        from PyQt5.QtWidgets import QMessageBox
-        if QMessageBox.question(self, "Confirmation", "Supprimer cette allergie?",
-                                QMessageBox.Yes|QMessageBox.No) == QMessageBox.Yes:
-            PatientModel.delete_allergie(allergy_id)
-            self._controller.log_action(self.user['id'], "patient", "DELETE_ALLERGIE", "allergies", allergy_id)
-            self._refresh_allergies()
-            self.show_toast("Allergie supprimee", "success")
+        allergene = QLineEdit(); allergene.setPlaceholderText("Ex: Pénicilline")
+        reaction = QComboBox(); reaction.addItems(["légère", "modérée", "sévère", "anaphylaxie"])
+        desc = QTextEdit(); desc.setPlaceholderText("Description des symptômes...")
+        desc.setMaximumHeight(80)
+        date_diag = QDateEdit(); date_diag.setCalendarPopup(True)
+        date_diag.setDate(QDate.currentDate())
 
-    # ===== EXAMENS =====
+        l.addRow("Allergène:", allergene)
+        l.addRow("Réaction:", reaction)
+        l.addRow("Description:", desc)
+        l.addRow("Date diagnostic:", date_diag)
+
+        btns = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        btns.accepted.connect(d.accept); btns.rejected.connect(d.reject)
+        l.addRow(btns)
+
+        if d.exec() == QDialog.Accepted and allergene.text().strip():
+            PatientModel.create_allergie(
+                self.patient['id'], allergene.text().strip(),
+                reaction.currentText(), desc.toPlainText().strip() or None,
+                date_diag.date().toString("yyyy-MM-dd")
+            )
+            self._controller.log_action(self.user['id'], "patient", "ADD_ALLERGIE",
+                                        "allergies", details=f"allergene={allergene.text()}")
+            self._refresh_allergies()
+            self.show_toast("Allergie ajoutée avec succès", "success")
+
+    def _delete_allergie(self, aid):
+        if QMessageBox.question(self, "Confirmation", "Supprimer cette allergie ?",
+                                QMessageBox.Yes | QMessageBox.No) == QMessageBox.Yes:
+            PatientModel.delete_allergie(aid)
+            self._controller.log_action(self.user['id'], "patient", "DELETE_ALLERGIE", "allergies", aid)
+            self._refresh_allergies()
+            self.show_toast("Allergie supprimée", "success")
+
+    # ======================== EXAMENS ========================
     def _build_examens(self):
-        page = QWidget()
-        layout = QVBoxLayout(page)
-        layout.setContentsMargins(28, 28, 28, 28)
+        page, layout = self._page_container()
 
-        title_row = QWidget()
-        trl = QHBoxLayout(title_row)
-        trl.setContentsMargins(0, 0, 0, 8)
-        t = QLabel("Labs  Examens")
-        t.setStyleSheet(f"font-size: 24px; font-weight: 800; color: {C_TEXT};")
-        trl.addWidget(t); trl.addStretch()
-        btn_add = make_btn("Ajouter un examen", "primary", "\u2795")
+        header = QWidget()
+        hl = QHBoxLayout(header)
+        hl.setContentsMargins(0, 0, 0, 0)
+        hl.addWidget(page_title("Mes Examens"))
+        hl.addStretch()
+        btn_add = make_btn("+ Ajouter un examen", "primary")
         btn_add.clicked.connect(self._add_examen)
-        trl.addWidget(btn_add)
-        layout.addWidget(title_row)
+        hl.addWidget(btn_add)
+        layout.addWidget(header)
 
-        self.examens_table = TableWithEmpty(["Type", "Date", "Resultats", "Valeurs"], "examens")
+        self.examens_table = TableWithEmpty(
+            ["Type", "Date", "Résultats", "Valeurs"],
+            "examens"
+        )
         layout.addWidget(self.examens_table, 1)
         return page
 
     def _refresh_examens(self):
         examens = PatientModel.get_examens(self.patient['id'])
-        data = []
-        for e in examens:
-            data.append([e.get('type_examen',''), e.get('date_examen',''),
-                         e.get('resultats',''), e.get('valeurs','')])
+        data = [[
+            e.get('type_examen', ''), e.get('date_examen', ''),
+            e.get('resultats', ''), e.get('valeurs', '')
+        ] for e in examens]
         self.examens_table.set_data(data)
 
     def _add_examen(self):
-        dialog = QDialog(self)
-        dialog.setWindowTitle("Ajouter un examen")
-        dialog.setMinimumWidth(450)
-        dialog.setStyleSheet(f"QDialog {{ background: {C_WHITE}; }}")
-        layout = QFormLayout(dialog)
-        layout.setSpacing(12); layout.setContentsMargins(24, 20, 24, 20)
+        d = QDialog(self)
+        d.setWindowTitle("Ajouter un examen")
+        d.setMinimumWidth(460)
+        d.setStyleSheet(f"QDialog {{ background: {C_WHITE}; }}")
+        l = QFormLayout(d)
+        l.setSpacing(14); l.setContentsMargins(28, 24, 28, 24)
+
         type_exam = QLineEdit(); type_exam.setPlaceholderText("IRM, prise de sang, radio...")
-        date_exam = QDateEdit(); date_exam.setCalendarPopup(True); date_exam.setDate(QDate.currentDate())
-        resultats = QTextEdit(); resultats.setPlaceholderText("Resultats de l'examen..."); resultats.setMaximumHeight(100)
-        layout.addRow("Type:", type_exam); layout.addRow("Date:", date_exam)
-        layout.addRow("Resultats:", resultats)
-        btn_box = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
-        btn_box.accepted.connect(dialog.accept); btn_box.rejected.connect(dialog.reject)
-        layout.addRow(btn_box)
-        if dialog.exec() == QDialog.Accepted and type_exam.text().strip():
-            PatientModel.create_examen(self.patient['id'], type_exam.text().strip(),
-                                       resultats.toPlainText().strip() or None,
-                                       date_exam.date().toString("yyyy-MM-dd"))
-            self._controller.log_action(self.user['id'], "patient", "ADD_EXAMEN", "examens", details=f"type={type_exam.text()}")
+        date_exam = QDateEdit(); date_exam.setCalendarPopup(True)
+        date_exam.setDate(QDate.currentDate())
+        resultats = QTextEdit(); resultats.setPlaceholderText("Résultats de l'examen...")
+        resultats.setMaximumHeight(100)
+
+        l.addRow("Type:", type_exam)
+        l.addRow("Date:", date_exam)
+        l.addRow("Résultats:", resultats)
+
+        btns = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        btns.accepted.connect(d.accept); btns.rejected.connect(d.reject)
+        l.addRow(btns)
+
+        if d.exec() == QDialog.Accepted and type_exam.text().strip():
+            PatientModel.create_examen(
+                self.patient['id'], type_exam.text().strip(),
+                resultats.toPlainText().strip() or None,
+                date_exam.date().toString("yyyy-MM-dd")
+            )
+            self._controller.log_action(self.user['id'], "patient", "ADD_EXAMEN",
+                                        "examens", details=f"type={type_exam.text()}")
             self._refresh_examens()
-            self.show_toast("Examen ajoute avec succes", "success")
+            self.show_toast("Examen ajouté avec succès", "success")
